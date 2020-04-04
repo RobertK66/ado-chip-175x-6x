@@ -17,6 +17,7 @@
 # LPCXpresso files
 
 .metadata
+*.settings/
 *[Dd]ebug/
 *[Dd]ebug Breakpoint/
 *[Rr]elease/
