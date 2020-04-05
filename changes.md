@@ -4,6 +4,6 @@
 -   Removed chip_lpc177x_8x.h and chip_lpc407x_8x.h as we only target LPC176x
     chips.
 
--   removed folder usbd as we do not target this features for now.
+-   Removed folder usbd as we do not target this features for now.
 
  
