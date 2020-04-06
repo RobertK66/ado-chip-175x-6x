@@ -1,1 +1,1 @@
-### Usage with MCUXpresso ([quick start](doc/usage/quickstart.md))
+### Usage with MCUXpresso ([quick start](usage/quickstart.md))
