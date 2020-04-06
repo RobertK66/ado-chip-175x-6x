@@ -11,22 +11,19 @@
 #include <chip.h>
 #include <stdio.h>
 
-#include "mod\cli.h"
+#include "mod/cli.h"
+#include "tests/test_ringbuffer.h"
 
 int main(void) {
-	// Read clock settings and update SystemCoreClock variable (needed only for iap.c module - Common FLASH support functions ...)
-	// SystemCoreClockUpdate();
-
 	// Select UART to be used for command line interface and init it.
 	CliInit(LPC_UART2);
+	TestRbInit(true);
 
 	while(1) {
 		CliMain();
 	}
 
 }
-
-
 
 #define WRITEFUNC __sys_write
 #define READFUNC __sys_readc
