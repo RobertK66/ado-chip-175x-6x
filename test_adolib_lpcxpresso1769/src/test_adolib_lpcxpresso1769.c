@@ -25,24 +25,3 @@ int main(void) {
 
 }
 
-#define WRITEFUNC __sys_write
-#define READFUNC __sys_readc
-
-int WRITEFUNC(int iFileHandle, char *pcBuffer, int iLength)
-{
-	unsigned int i;
-	for (i = 0; i < iLength; i++) {
-		CliPutChar(pcBuffer[i]);
-	}
-	return iLength;
-}
-
-/* Called by bottom level of scanf routine within RedLib C library to read
-   a character. With the default semihosting stub, this would read the character
-   from the debugger console window (which acts as stdin). But this version reads
-   the character from the LPC1768/RDB1768 UART. */
-int READFUNC(void)
-{
-	char c = CliGetChar();
-	return (int) c;
-}

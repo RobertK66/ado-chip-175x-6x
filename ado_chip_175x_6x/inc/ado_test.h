@@ -30,10 +30,10 @@ typedef struct test_result_s {
 
 #define test_ok ((test_failure_t *)0)
 
-// private prototype. Use with defined testFailed(a,b) makro
+// private prototype. Use with defined testFailed(a,b) macro.
 void _testFailed(const char* file, const char* func, int ln, test_result_t* res, char* message);
 
-#define testFailed(a, b) _testFailed(__FILE__, __func__, __LINE__, a, b)
+#define testFailed(pRes, message) _testFailed(__FILE__, __func__, __LINE__, pRes, message)
 #define testPassed(a)	 a->run++;
 
 #endif /* ADO_TEST_H_ */

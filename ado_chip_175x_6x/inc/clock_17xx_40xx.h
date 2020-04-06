@@ -474,8 +474,8 @@ typedef enum CHIP_SYSCTL_PLLCLKSRC {
 	SYSCTL_PLLCLKSRC_RTC,			/*!< PLL is sourced from the RTC oscillator */
 #else
 	SYSCTL_PLLCLKSRC_RESERVED1,
-#endif
 	SYSCTL_PLLCLKSRC_RESERVED2
+#endif
 } CHIP_SYSCTL_PLLCLKSRC_T;
 
 /**

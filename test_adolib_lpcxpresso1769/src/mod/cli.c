@@ -246,3 +246,26 @@ void CliShowStatistics(int argc, char *argv[]){
 	printf("\nlinesProcessed: %d\ncmdsProcessed: %d\nignoredTxChars: %d\nbufferErrors: %d\n",
 	          linesProcessed, cmdsProcessed,  ignoredTxChars, bufferErrors);
 }
+
+
+//#define WRITEFUNC __sys_write
+//#define READFUNC __sys_readc
+
+int __sys_write(int iFileHandle, char *pcBuffer, int iLength)
+{
+	unsigned int i;
+	for (i = 0; i < iLength; i++) {
+		CliPutChar(pcBuffer[i]);
+	}
+	return iLength;
+}
+
+/* Called by bottom level of scanf routine within RedLib C library to read
+   a character. With the default semihosting stub, this would read the character
+   from the debugger console window (which acts as stdin). But this version reads
+   the character from the LPC1768/RDB1768 UART. */
+int __sys_readc(void)
+{
+	char c = CliGetChar();
+	return (int) c;
+}

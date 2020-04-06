@@ -139,6 +139,9 @@ void Chip_SPI_Int_FlushData(LPC_SPI_T *pSPI)
 	Chip_SPI_GetStatus(pSPI);
 	tmp = Chip_SPI_ReceiveFrame(pSPI);
 	Chip_SPI_Int_ClearStatus(pSPI, SPI_INT_SPIF);
+
+	// Prevent compiler warning
+	(void)tmp;
 }
 
 /* SPI Interrupt Read/Write with 8-bit frame width */

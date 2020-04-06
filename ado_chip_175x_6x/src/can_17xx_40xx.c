@@ -774,6 +774,9 @@ void Chip_CAN_Init(LPC_CAN_T *pCAN, LPC_CANAF_T *pCANAF, LPC_CANAF_RAM_T *pCANAF
 	/* Initiialize Acceptance filter */
 	clearAFLUT(pCANAF, pCANAFRam);
 	Chip_CAN_SetAFMode(pCANAF, CAN_AF_NORMAL_MODE);
+
+	/* Prevent compiler warning */
+	(void)i;
 }
 
 /* De-Initialize CAN Interface */
