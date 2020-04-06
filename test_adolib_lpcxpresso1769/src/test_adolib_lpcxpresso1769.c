@@ -8,41 +8,44 @@
 ===============================================================================
 */
 
-#if defined (__USE_LPCOPEN)
-#if defined(NO_BOARD_LIB)
-#include "chip.h"
-#else
-#include "board.h"
-#endif
-#endif
+#include <chip.h>
+#include <stdio.h>
 
-#include <cr_section_macros.h>
-
-// TODO: insert other include files here
-
-// TODO: insert other definitions and declarations here
+#include "mod\cli.h"
 
 int main(void) {
+	// Read clock settings and update SystemCoreClock variable (needed only for iap.c module - Common FLASH support functions ...)
+	// SystemCoreClockUpdate();
 
-#if defined (__USE_LPCOPEN)
-    // Read clock settings and update SystemCoreClock variable
-    SystemCoreClockUpdate();
-#if !defined(NO_BOARD_LIB)
-    // Set up and initialize all required blocks and
-    // functions related to the board hardware
-    Board_Init();
-    // Set the LED to the state of "On"
-    Board_LED_Set(0, true);
-#endif
-#endif
+	// Select UART to be used for command line interface and init it.
+	CliInit(LPC_UART2);
 
-    // TODO: insert code here
+	while(1) {
+		CliMain();
+	}
 
-    // Force the counter to be placed into memory
-    volatile static int i = 0 ;
-    // Enter an infinite loop, just incrementing a counter
-    while(1) {
-        i++ ;
-    }
-    return 0 ;
+}
+
+
+
+#define WRITEFUNC __sys_write
+#define READFUNC __sys_readc
+
+int WRITEFUNC(int iFileHandle, char *pcBuffer, int iLength)
+{
+	unsigned int i;
+	for (i = 0; i < iLength; i++) {
+		CliPutChar(pcBuffer[i]);
+	}
+	return iLength;
+}
+
+/* Called by bottom level of scanf routine within RedLib C library to read
+   a character. With the default semihosting stub, this would read the character
+   from the debugger console window (which acts as stdin). But this version reads
+   the character from the LPC1768/RDB1768 UART. */
+int READFUNC(void)
+{
+	char c = CliGetChar();
+	return (int) c;
 }
