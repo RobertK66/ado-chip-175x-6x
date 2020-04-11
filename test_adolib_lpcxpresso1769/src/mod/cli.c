@@ -7,9 +7,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include "cli.h"
-#include <ado_uart.h>
+#include <stdlib.h>
 
+#include <ado_uart.h>
+#include <ring_buffer.h>
+
+#include "cli.h"
 //#include "..\..\globals.h"
 
 // Command Interface
@@ -33,7 +36,11 @@ LPC_USART_T *cliUart;						// pointer to UART used for CLI
 char cliRxBuffer[CLI_RXBUFFER_SIZE];
 int cliRxPtrIdx = 0;
 
-// The Tx 'ringbuffer' used for TX with interrupt routine
+// The tx ringbuffer used for TX with interrupt routine.
+static RINGBUFF_T  txRingbuffer;
+
+
+
 #define CLI_TXBUFFER_SIZE 1024
 bool prtTxInProgress = false;
 int prtBufferRead = 0;
@@ -53,17 +60,16 @@ int linesProcessed = 0;
 int cmdsProcessed = 0;
 
 //
-// local module prototypes
+// module prototypes
 // ----------------------
 void processLine();
 void CliShowStatistics(int argc, char *argv[]);
+void CliUartIRQHandler(LPC_USART_T *pUART);
+void CliPutChar(char ch);
 
 //
 // Module function implementations
 // -------------------------------
-void SetCliUart(LPC_USART_T *pUart){
-	cliUart = pUart;
-}
 
 // The UART Interrupt handler. We only use 'TX empty' interrupt to get out the next byte from our tx 'ringbuffer'
 // This method must be wrapped from the real UART interrupt (there is one for each of the 4 UARTx
@@ -158,9 +164,23 @@ void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[])) {
 }
 
 // This module init from main module. Remark: The Uart initialization is done in CliInitUart() called by board init.
-void CliInit(LPC_USART_T *pUart) {
-	SetCliUart(pUart);
-	InitUart(pUart, 115200, CliUartIRQHandler);
+void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint8_t txBufferSize) {
+	cliUart = pUart;
+	// Buffer size must be powerOfTwo! Reduce to next lower fitting value in order to not overuse the allocated buffer.
+	while(!(txBufferSize & (txBufferSize - 1))) {
+		txBufferSize--;
+	}
+
+	if (pTxBuffer == 0) {
+		// No Data area specified. Lets reserve the buffer on the heap.
+		while(!(txBufferSize & (txBufferSize - 1))) {
+			txBufferSize--;
+		}
+		pTxBuffer = (char*)malloc(txBufferSize);
+	}
+	RingBuffer_Init(&txRingbuffer, pTxBuffer, sizeof(char), txBufferSize * sizeof(char));
+	InitUart(pUart, baud, CliUartIRQHandler);
+
 	RegisterCommand("cliStat", CliShowStatistics);
 	printf(CLI_PROMPT);
 }

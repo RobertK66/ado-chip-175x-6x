@@ -46,8 +46,12 @@ void trb_testAllCmd(int argc, char *argv[]){
 	result.failed = 0;
 	result.failures = test_ok;
 
+	blue_on();			// indicate tests running;
+	red_off();
+	green_off();
 	trb_testAll(&result);
 	printf("%d/%d Tests ok\n", result.run - result.failed, result.run);
+	blue_off();
 	if (result.failed > 0) {
 		print_failures(result.failures);
 		red_on();
