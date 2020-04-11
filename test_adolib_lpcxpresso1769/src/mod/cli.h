@@ -14,12 +14,12 @@
 // Do not change the default values here. Use the 'overloaded' CliInitN() macros.
 #define CLI_DEFAULT_UART			LPC_UART0
 #define CLI_DEFAULT_BAUD			115200
-#define CLI_DEFAULT_TXBUFFER_SIZE	((uint8_t)256)					// default buffer is allocated on heap by init()!!!!
+#define CLI_DEFAULT_TXBUFFER_SIZE	((uint8_t)129)					// default buffer is allocated on heap by init()!!!!
 
-#define CliInit() 				_CliInit(CLI_DEFAULT_UART, CLI_DEFAULT_BAUD, 0, CLI_DEFAULT_TXBUFFER_SIZE)
-#define CliInit1(a) 			_CliInit(a, CLI_DEFAULT_BAUD, 0, CLI_DEFAULT_TXBUFFER_SIZE )
-#define CliInit2(a,b) 			_CliInit(a, b,  0, CLI_DEFAULT_TXBUFFER_SIZE)
-#define CliInit4(a,b, c, d) 	_CliInit(a, b,  c, d)
+#define CliInit() 										_CliInit(CLI_DEFAULT_UART, CLI_DEFAULT_BAUD, 0, CLI_DEFAULT_TXBUFFER_SIZE)
+#define CliInit1(pUart) 								_CliInit(pUart, CLI_DEFAULT_BAUD, 0, CLI_DEFAULT_TXBUFFER_SIZE )
+#define CliInit2(pUart,baud) 							_CliInit(pUart, baud,  0, CLI_DEFAULT_TXBUFFER_SIZE)
+#define CliInit4(pUart,baud, pTxBuffer, txBufferSize) 	_CliInit(pUart, baud,  pTxBuffer, txBufferSize)
 
 
 // Module API Prototypes
