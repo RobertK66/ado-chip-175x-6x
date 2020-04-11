@@ -85,21 +85,6 @@ void CliUartIRQHandler(LPC_USART_T *pUART) {
 			Chip_UART_IntDisable(pUART, UART_IER_THREINT);
 			prtTxInProgress = false;
 		}
-
-//		prtBufferRead++;
-//		if (prtBufferRead == CLI_TXBUFFER_SIZE) {
-//			prtBufferRead = 0;
-//		}
-//
-//		if (prtBufferRead != prtBufferWrite) {
-//			// We still have bytes to catch up with the written buffer content. Send out next one.
-//			Chip_UART_SendByte(pUART, prtBuffer[prtBufferRead]);
-//		} else {
-//			// Nothing left to send.  Disable transmit interrupt.
-//			Chip_UART_IntDisable(pUART, UART_IER_THREINT);
-//			prtTxInProgress = false;
-//		}
-
 	}
 }
 
@@ -108,22 +93,12 @@ void CliUartIRQHandler(LPC_USART_T *pUART) {
 // We put the char in our TX ringbuffer and initialize sending if needed.
 void CliPutChar(char ch) {
 	if (prtTxInProgress) {
+		// We just put the char into buffer. Tx is already running and will be re-triggered by tx interrupt.
 		if (RingBuffer_Insert(&cliTxRingbuffer, &ch) == 0) {
 			// no place left in buffer
 			// ... TODO ... log event here !?
 			ignoredTxChars++;
 		}
-//		// We just put the char into buffer. Tx is already running and will be re-triggered by tx interrupt.
-//		if (prtBufferRead != prtBufferWrite) {
-//			prtBuffer[prtBufferWrite++]=ch;
-//			if (prtBufferWrite >= CLI_TXBUFFER_SIZE) {
-//				prtBufferWrite = 0;
-//			}
-//		} else {
-//			// Thats bad. Seems buffer is overrun (or prtTxInProgress is 'lying')
-//			// ... TODO ... log event here !?
-//			ignoredTxChars++;
-//		}
 	} else {
 		if (!RingBuffer_IsEmpty(&cliTxRingbuffer)) {
 			// Thats strange. somebody left the buffer 'unsent' -> lets reset
@@ -131,19 +106,8 @@ void CliPutChar(char ch) {
 			// TODO .. log event here
 			bufferErrors++;
 		}
-		//RingBuffer_Insert(&cliTxRingbuffer, ch);
-//		// We trigger a new Tx block.
-//		if (prtBufferRead != prtBufferWrite) {
-//			// Thats strange. somebody left the buffer 'unsent' -> lets reset
-//			prtBufferRead = 0;
-//			prtBufferWrite = 0;
-//			// TODO .. log event here
-//			bufferErrors++;
-//		}
-//		prtBuffer[prtBufferWrite++]=ch;
-//		if (prtBufferWrite >= CLI_TXBUFFER_SIZE) {
-//			prtBufferWrite = 0;
-//		}
+		// No need to put this char in buffer, as it is sent out to UART immediately.
+
 		// We trigger sending without checking of Line Status here because we trust our own variables and
 		// want to avoid clearing the possible Rx Overrun error by reading the status register !?
 		// I am not sure the 'non occurence' of the Rx Overrun in my first version (without tx interrupt) was caused by this
@@ -175,7 +139,6 @@ int CliGetChar() {
 void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[])) {
 	// TODO check if duplicate entry !!!
 	if ( cliRegisteredCommands < CLI_MAX_COMMANDS) {
-
 		strncpy(commands[cliRegisteredCommands].cmdStr,cmdStr,C_MAX_CMDSTR_LEN);
 		commands[cliRegisteredCommands].func = callback;
 		cliRegisteredCommands++;
@@ -184,9 +147,22 @@ void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[])) {
 	}
 }
 
-// This module init from main module. Remark: The Uart initialization is done in CliInitUart() called by board init.
-void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint8_t txBufferSize) {
+// This module init from main module.
+void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSize) {
+	if ((cliUart != 0)) {
+		// DeInit uart used until now.
+		DeInitUart(cliUart);
+		// If we did the tx buffer alloc then free it.
+		//...
+
+		// Clear all the registered commands. TODO: is this wise here !?
+		for (int i=0; i<CLI_MAX_COMMANDS ; i++) {
+			commands[i] = (const struct cliCommand){ 0 };
+		}
+		cliRegisteredCommands = 0;
+	}
 	cliUart = pUart;
+
 	// Buffer size must be powerOfTwo! Reduce to next lower fitting value in order to not overuse the allocated buffer.
 	while((txBufferSize & (txBufferSize - 1))) {
 		txBufferSize--;

@@ -48,8 +48,8 @@ void cli_testInitDefault(test_result_t* res){
 	}
 
 	// Check the Tx buffer (size)
-	if (cliTxRingbuffer.count != 128) {
-		sprintf(msg, "Tx buffer size was %d iso %d", cliTxRingbuffer.count, 128);
+	if (cliTxRingbuffer.count != 1024) {
+		sprintf(msg, "Tx buffer size was %d iso %d", cliTxRingbuffer.count, 1024);
 		testFailed(res, msg);
 		return;
 	}

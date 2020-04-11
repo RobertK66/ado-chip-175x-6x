@@ -14,7 +14,7 @@
 // Do not change the default values here. Use the 'overloaded' CliInitN() macros.
 #define CLI_DEFAULT_UART			LPC_UART0
 #define CLI_DEFAULT_BAUD			115200
-#define CLI_DEFAULT_TXBUFFER_SIZE	((uint8_t)129)					// default buffer is allocated on heap by init()!!!!
+#define CLI_DEFAULT_TXBUFFER_SIZE	((uint16_t)1024)					// default buffer is allocated on heap by init()!!!!
 
 #define CliInit() 										_CliInit(CLI_DEFAULT_UART, CLI_DEFAULT_BAUD, 0, CLI_DEFAULT_TXBUFFER_SIZE)
 #define CliInit1(pUart) 								_CliInit(pUart, CLI_DEFAULT_BAUD, 0, CLI_DEFAULT_TXBUFFER_SIZE )
@@ -23,7 +23,7 @@
 
 
 // Module API Prototypes
-void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint8_t txBufferSize);	// module init to be called once prior mainloop. (Use macros for calling with various par lists.)
+void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSize);	// module init to be called once prior mainloop. (Use macros for calling with various par lists.)
 void CliMain(void);								// module routine should participate in regular mainloop calls.
 
 void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[]));	// Assign Callback for your custom commands.

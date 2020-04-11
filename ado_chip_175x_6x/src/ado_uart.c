@@ -5,6 +5,23 @@ void (*irqHandler1)(LPC_USART_T *pUART) = 0;
 void (*irqHandler2)(LPC_USART_T *pUART) = 0;
 void (*irqHandler3)(LPC_USART_T *pUART) = 0;
 
+void DeInitUart(LPC_USART_T *pUart) {
+	if (pUart == LPC_UART0) {
+		irqHandler0 = 0;
+		NVIC_DisableIRQ(UART0_IRQn);
+	} else if (pUart == LPC_UART1) {
+		irqHandler1 = 0;
+		NVIC_DisableIRQ(UART1_IRQn);
+	} else if (pUart == LPC_UART2) {
+		irqHandler2 = 0;
+		NVIC_DisableIRQ(UART2_IRQn);
+	} else if (pUart == LPC_UART3) {
+		irqHandler3 = 0;
+		NVIC_DisableIRQ(UART3_IRQn);
+	}
+	Chip_UART_DeInit(pUart);
+}
+
 void InitUart(LPC_USART_T *pUart, int baud, void(*irqHandler)(LPC_USART_T *pUART)){
 	Chip_UART_Init(pUart);
 	Chip_UART_SetBaud(pUart, baud);				// Sets the next available 'un-fractioned' baud rate.
