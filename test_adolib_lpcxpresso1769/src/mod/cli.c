@@ -43,14 +43,10 @@ static bool 		cliTxInProgress = false;
 char cliRxBuffer[CLI_RXBUFFER_SIZE];
 int cliRxPtrIdx = 0;
 
-
-
-
 // Command Line parsing and registry
 char cmdLine[CLI_RXBUFFER_SIZE+10];
 int  cliRegisteredCommands = 0;
 cliCommand_t commands[CLI_MAX_COMMANDS];
-
 
 // module statistics
 int ignoredTxChars = 0;
@@ -151,6 +147,7 @@ void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSi
 	if ((cliUart != 0)) {
 		// DeInit uart used until now.
 		DeInitUart(cliUart);
+		cliTxInProgress = false;		// Re-arm the tx logic if running!
 
 		// Clear all the registered commands.
 		for (int i=0; i<CLI_MAX_COMMANDS ; i++) {
