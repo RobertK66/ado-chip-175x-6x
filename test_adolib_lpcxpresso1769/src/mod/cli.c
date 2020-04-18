@@ -265,7 +265,10 @@ int __sys_write(int iFileHandle, char *pcBuffer, int iLength)
 	for (i = 0; i < iLength; i++) {
 		CliPutChar(pcBuffer[i]);
 	}
-	return iLength;
+
+	//Content originally posted in LPCWare by lpcxpresso-support on Fri Dec 18 08:44:32 MST 2015
+	//__sys_write() should returns number of unwritten bytes if an error occurs, otherwise 0 for a successful output of data.
+	return 0;
 }
 
 /* Called by bottom level of scanf routine within RedLib C library to read

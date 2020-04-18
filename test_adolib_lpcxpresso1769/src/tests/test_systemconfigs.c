@@ -3,6 +3,23 @@
  *
  *  Created on: 18.04.2020
  *      Author: Robert
+ *
+ *
+ *  This test module assumes, that there exist different project configurations represented by Project wide
+ *  compiler defines.
+ *  ( Set in the Properties - C/C++ Build - Settings | Tool Settings - MCU C-Compiler - Preprocessor - Defined Symbols(-D) )
+ *
+ *  Currently there are coded following Configuration Settings:
+ *
+ *  DEBUG_TESTCONFIG_1
+ *  	Project is linked to 		Redlib nohost(nf)
+ *
+ *
+ *  DEBUG_TESTCONFIG_2
+ *  	Project is linked to		Redlib nohost(nf)
+ *  	CR_PRINTF_CHAR				defines that printf does not use a temp stringbuilder with malloc
+ *  	CR_INTEGER_PRINTF			printf only handles integer variables.
+ *
  */
 #include "test_systemconfigs.h"
 
@@ -36,8 +53,6 @@ void print_failures2(test_failure_t *fp){
 	//free(fp);
 
 }
-
-
 
 void TestScInit(bool autoStart) {
 	RegisterCommand("testAllSys", tsc_testAllCmd);
@@ -75,8 +90,6 @@ void cli_testPrintFNotusingHeap(test_result_t* res){
 	uint32_t usedheap_before;
 	uint32_t usedheap_after;
 
-#if DEBUG_TESTCONFIG_1
-	// This Configuration uses redlib-nf (no floating point printf) without any additional debug flags (-> printf is going to use heap space)
 	if ((uint32_t)__end_of_heap == 0) {
 		// If not used at all __end_of_heap contains 0!
 		usedheap_before = 0;
@@ -84,20 +97,47 @@ void cli_testPrintFNotusingHeap(test_result_t* res){
 		usedheap_before = (uint32_t)__end_of_heap - heapBase;
 	}
 
-	printf("A test String writing something to the output UART\n");
+
+#if DEBUG_TESTCONFIG_1
+	// This Configuration uses redlib-nf (no floating point printf) without any additional debug flags (-> printf is going to use heap space)
+	float f = 2.2;
+	int i = 55;
+
+	printf("A test String writing something to the output UART f:%.6f i:%d\n", f, i);
 
 	usedheap_after = (uint32_t)__end_of_heap - heapBase;
+
+	printf("Heap diff: %d\n", usedheap_after - usedheap_before );
+
 	if ((usedheap_after == usedheap_before)) {
 		testFailed(res,"No Heap used!?");
 		return;
 	}
-	if ((usedheap_after - usedheap_before) > 52) {
+	if ((usedheap_after - usedheap_before) != 52) {
 		testFailed(res,"Wrong Heap size used!?");
 		return;
 	}
 
 #elif DEBUG_TESTCONFIG_2
+	float f = 2.2;
+	int i = 55;
 
+	printf("A test String writing something to the output UART f:%.6f i:%d\n", f, i);
+
+	if ((uint32_t)__end_of_heap == 0) {
+			// If not used at all __end_of_heap contains 0!
+		usedheap_after = 0;
+	} else {
+		usedheap_after = (uint32_t)__end_of_heap - heapBase;
+	}
+
+	printf("Heap diff: %d\n", usedheap_after - usedheap_before );
+
+
+	if (usedheap_after != usedheap_before) {
+		testFailed(res,"Printf used some Heap space!");
+		return;
+	}
 
 #endif
 
