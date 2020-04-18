@@ -37,7 +37,8 @@ void print_failures(test_failure_t *fp){
 	if (fp->nextFailure != test_ok) {
 		print_failures(fp->nextFailure);
 	}
-	free(fp);
+	//free(fp);
+
 }
 
 void trb_testAllCmd(int argc, char *argv[]){
@@ -54,6 +55,7 @@ void trb_testAllCmd(int argc, char *argv[]){
 	blue_off();
 	if (result.failed > 0) {
 		print_failures(result.failures);
+		testClearFailures();
 		red_on();
 		green_off();
 	} else {

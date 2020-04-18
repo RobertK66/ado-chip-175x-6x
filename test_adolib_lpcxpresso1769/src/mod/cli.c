@@ -4,16 +4,16 @@
  *  Created on: 02.11.2019
  *      Author: Robert
  */
+#include "cli.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <stdlib.h>
+//#include <stdlib.h>
 
 #include <ado_uart.h>
 #include <ring_buffer.h>
 
-#include "cli.h"
-//#include "..\..\globals.h"
 
 // Command Interface
 #define C_MAX_CMDSTR_LEN	16
@@ -29,23 +29,22 @@ typedef struct cliCommand {
 //
 // local module variables
 // ----------------------
-LPC_USART_T *cliUart;						// pointer to UART used for CLI
+// pointer to UART used for CLI
+static LPC_USART_T *cliUart;
+
+// The tx ringbuffer used for TX with interrupt routine.
+RINGBUFF_T  		cliTxRingbuffer;
+char				cliTxData[CLI_TXBUFFER_SIZE];
+static bool 		cliTxInProgress = false;
+
 
 // The Rx line buffer - used with polling from mainloop
 #define CLI_RXBUFFER_SIZE 128
 char cliRxBuffer[CLI_RXBUFFER_SIZE];
 int cliRxPtrIdx = 0;
 
-// The tx ringbuffer used for TX with interrupt routine.
-RINGBUFF_T  cliTxRingbuffer;
 
 
-
-//#define CLI_TXBUFFER_SIZE 1024
-bool prtTxInProgress = false;
-//int prtBufferRead = 0;
-//int prtBufferWrite = 0;
-//char prtBuffer[CLI_TXBUFFER_SIZE];
 
 // Command Line parsing and registry
 char cmdLine[CLI_RXBUFFER_SIZE+10];
@@ -83,7 +82,7 @@ void CliUartIRQHandler(LPC_USART_T *pUART) {
 		} else {
 			// Nothing left to send.  Disable transmit interrupt.
 			Chip_UART_IntDisable(pUART, UART_IER_THREINT);
-			prtTxInProgress = false;
+			cliTxInProgress = false;
 		}
 	}
 }
@@ -92,7 +91,7 @@ void CliUartIRQHandler(LPC_USART_T *pUART) {
 // This is also used by all redlib io to stdout (printf,....)
 // We put the char in our TX ringbuffer and initialize sending if needed.
 void CliPutChar(char ch) {
-	if (prtTxInProgress) {
+	if (cliTxInProgress) {
 		// We just put the char into buffer. Tx is already running and will be re-triggered by tx interrupt.
 		if (RingBuffer_Insert(&cliTxRingbuffer, &ch) == 0) {
 			// no place left in buffer
@@ -114,7 +113,7 @@ void CliPutChar(char ch) {
 		// but its my only explanation i had for what i was seeing then. ( Mainloop was delayed by tx waiting for LineStatus
 		// -> output was cut off after 2 lines and skipped to the end of my RX - Teststring containing a lot more characters
 		// than 2 64 byte lines. Breakpoint for Rx Overrun was never hit !!???
-		prtTxInProgress = true;
+		cliTxInProgress = true;
 		Chip_UART_IntEnable(cliUart, UART_IER_THREINT);
 		Chip_UART_SendByte(cliUart, (uint8_t) ch);
 	}
@@ -147,15 +146,13 @@ void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[])) {
 	}
 }
 
-// This module init from main module.
+// The module init can be called more than once. Last one wins with registered cliCommands only.
 void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSize) {
 	if ((cliUart != 0)) {
 		// DeInit uart used until now.
 		DeInitUart(cliUart);
-		// If we did the tx buffer alloc then free it.
-		//...
 
-		// Clear all the registered commands. TODO: is this wise here !?
+		// Clear all the registered commands.
 		for (int i=0; i<CLI_MAX_COMMANDS ; i++) {
 			commands[i] = (const struct cliCommand){ 0 };
 		}
@@ -169,8 +166,8 @@ void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSi
 	}
 
 	if (pTxBuffer == 0) {
-		// No Data area specified. Lets reserve the buffer on the heap.
-		pTxBuffer = (char*)malloc(txBufferSize);
+		// No external Data area specified. Lets take our own char array.
+		pTxBuffer = cliTxData;
 	}
 	RingBuffer_Init(&cliTxRingbuffer, pTxBuffer, sizeof(char), txBufferSize * sizeof(char));
 	InitUart(pUart, baud, CliUartIRQHandler);

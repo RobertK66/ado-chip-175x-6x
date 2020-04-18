@@ -12,14 +12,15 @@
 #include "../mod/cli.h"
 #include "../system.h"
 
-// reference to the module variable of cli module.
+// reference to the module variable of cli module - not part of the api!
 extern RINGBUFF_T cliTxRingbuffer;
+extern char		cliTxData[0];
 
-// references needed to get heap pointers for checks.
-register void * stack_ptr asm ("sp");
-extern char _pvHeapLimit __attribute__((weak));
-extern char _pvHeapStart __attribute__((weak));
-extern unsigned int __end_of_heap;
+//// references needed to get heap pointers for checks.
+//register void * stack_ptr asm ("sp");
+//extern char _pvHeapLimit __attribute__((weak));
+//extern char _pvHeapStart __attribute__((weak));
+//extern unsigned int __end_of_heap;
 
 
 void cli_testInitDefault(test_result_t* res){
@@ -54,11 +55,9 @@ void cli_testInitDefault(test_result_t* res){
 		return;
 	}
 
-	// Data pointer should point to heap.
-	void *start_of_heap = (void* )& _pvHeapStart;
-	void *end_of_heap = (void* )__end_of_heap;
-	if (!((cliTxRingbuffer.data < end_of_heap) & (cliTxRingbuffer.data > start_of_heap))) {
-		testFailed(res, "Data pointer not pointing to heap.");
+	// Data pointer should point to internal array .
+	if (cliTxRingbuffer.data != (void *)cliTxData) {
+		testFailed(res, "Data pointer not pointing to cli internal array");
 		return;
 	}
 
@@ -71,7 +70,6 @@ void cli_testInit2(test_result_t* res){
 	char myTxBuffer[20];
 	char msg[32];
 
-
 	LPC_USART_T *pUart = LPC_UART2;
 
 	CliInit4(pUart, 9600, myTxBuffer, 20);				// should initialize the asked UART to 9600 and use lokal Txbuffer variable.
@@ -83,7 +81,7 @@ void cli_testInit2(test_result_t* res){
 	Chip_UART_DisableDivisorAccess(pUart);
 
 	if (dll != 156) {
-		sprintf(msg, "DLL was %d iso %d", dll, 156);		// This is the value expected with XTAL 12 Mhz on LPCXpresso board and baud=9600
+		sprintf(msg, "DLL was %d iso %d", dll, 156);	// This is the value expected with XTAL 12 Mhz on LPCXpresso board and baud=9600
 		testFailed(res, msg);
 		return;
 	}
@@ -94,18 +92,16 @@ void cli_testInit2(test_result_t* res){
 		return;
 	}
 
-	// Check the Tx buffer (size). 20 is not allowed and cut down to next powOfTwo -> 16.
+	// Check the Tx buffer (size). 20 is not allowed and is cut down to next powOfTwo -> 16.
 	if (cliTxRingbuffer.count != 16) {
 		sprintf(msg, "Tx buffer size was %d iso %d", cliTxRingbuffer.count, 16);
 		testFailed(res, msg);
 		return;
 	}
 
-	// Data pointer should NOT point to heap.
-	void *start_of_heap = (void* )& _pvHeapStart;
-	void *end_of_heap = (void* )__end_of_heap;
-	if (((cliTxRingbuffer.data < end_of_heap) & (cliTxRingbuffer.data > start_of_heap))) {
-		testFailed(res, "Data pointer pointing to heap!");
+	// Data pointer should NOT point to  internal array it should point to our array on stack.
+	if (cliTxRingbuffer.data != (void *)myTxBuffer) {
+		testFailed(res, "Data pointer not pointing to local variable!");
 		return;
 	}
 
@@ -117,6 +113,7 @@ void cli_testInit2(test_result_t* res){
 void cli_testAll(test_result_t* result) {
 	cli_testInitDefault(result);
 	cli_testInit2(result);
+	//cli_testPrintFNotusingHeap(result);
 }
 
 test_result_t TestCliInit() {
