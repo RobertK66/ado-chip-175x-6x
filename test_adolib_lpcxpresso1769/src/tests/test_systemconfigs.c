@@ -38,8 +38,6 @@ extern char _pvHeapLimit __attribute__((weak));
 extern char _pvHeapStart __attribute__((weak));
 extern unsigned int __end_of_heap;
 
-
-
 // prototypes
 void tsc_testAllCmd(int argc, char *argv[]);
 void tsc_testAll(test_result_t* result);
@@ -50,8 +48,6 @@ void print_failures2(test_failure_t *fp){
 	if (fp->nextFailure != test_ok) {
 		print_failures2(fp->nextFailure);
 	}
-	//free(fp);
-
 }
 
 void TestScInit(bool autoStart) {
@@ -107,7 +103,7 @@ void cli_testPrintFNotusingHeap(test_result_t* res){
 
 	usedheap_after = (uint32_t)__end_of_heap - heapBase;
 
-	printf("Heap diff: %d\n", usedheap_after - usedheap_before );
+	printf("Heap diff: %d ( H: %d - %d)\n", usedheap_after - usedheap_before, usedheap_before,  usedheap_after );
 
 	if ((usedheap_after == usedheap_before)) {
 		testFailed(res,"No Heap used!?");

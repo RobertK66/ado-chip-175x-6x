@@ -8,9 +8,10 @@
 
 #include <Chip.h>
 
+
 #include "test_cli.h"
-#include "../mod/cli.h"
 #include "../system.h"
+#include "../mod/cli.h"
 
 // reference to the module variable of cli module - not part of the api!
 extern RINGBUFF_T cliTxRingbuffer;
@@ -49,7 +50,12 @@ void cli_testInitDefault(test_result_t* res){
 	}
 
 	// Check the Tx buffer (size)
-	if (cliTxRingbuffer.count != 1024) {
+	int expSize = 1024;
+#if DEBUG_TESTCONFIG_2
+	expSize = 512;
+#endif
+
+	if (cliTxRingbuffer.count != expSize) {
 		sprintf(msg, "Tx buffer size was %d iso %d", cliTxRingbuffer.count, 1024);
 		testFailed(res, msg);
 		return;

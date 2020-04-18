@@ -13,7 +13,6 @@
 
 #include "system.h"
 
-#define CLI_CFG_TXBUFFER_SIZE	(512)
 #include "mod/cli.h"
 #include "tests/test_cli.h"
 #include "tests/test_ringbuffer.h"
