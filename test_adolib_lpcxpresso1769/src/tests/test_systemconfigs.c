@@ -30,7 +30,7 @@
 #include <string.h>
 
 #include "../system.h"
-#include "../mod/cli.h"
+#include <mod/cli.h>
 
 // references needed to get heap pointers for checks.
 register void * stack_ptr asm ("sp");

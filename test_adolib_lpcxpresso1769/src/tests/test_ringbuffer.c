@@ -15,7 +15,7 @@
 #include "test_ringbuffer.h"
 
 #include "../system.h"
-#include "../mod/cli.h"
+#include <mod/cli.h>
 
 static const int C_TEST_SIZE = 16;
 

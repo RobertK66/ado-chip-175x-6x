@@ -4,7 +4,7 @@
  *  Created on: 02.11.2019
  *      Author: Robert
  */
-#include "cli.h"
+#include "mod/cli.h"
 
 #include <stdio.h>
 #include <string.h>

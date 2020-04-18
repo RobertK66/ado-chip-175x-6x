@@ -11,7 +11,7 @@
 
 #include "test_cli.h"
 #include "../system.h"
-#include "../mod/cli.h"
+#include <mod/cli.h>
 
 // reference to the module variable of cli module - not part of the api!
 extern RINGBUFF_T cliTxRingbuffer;
