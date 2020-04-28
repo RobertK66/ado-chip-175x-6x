@@ -11,8 +11,8 @@
 #include <chip.h>
 
 // Defaults used by CliInit() macro;
-// Do not change the default values here. Use the 'overloaded' CliInitN() macros.
-#define CLI_DEFAULT_UART			LPC_UART0
+// Do not change the default values here. Use the 'overloaded' CliInitN() macros
+// or make global definitions of the corresponding CLI_CFG_xyz values.
 #define CLI_DEFAULT_BAUD			115200
 
 #if CLI_CFG_TXBUFFER_SIZE
@@ -21,7 +21,13 @@
 	#define CLI_TXBUFFER_SIZE	((uint16_t)1024)
 #endif
 
-#define CliInit() 										_CliInit(CLI_DEFAULT_UART, CLI_DEFAULT_BAUD, 0, CLI_TXBUFFER_SIZE)
+#if CLI_CFG_ENDOFLINE_CHAR
+	#define CLI_ENDOFLINE_CHAR CLI_CFG_ENDOFLINE_CHAR
+#else
+	#define CLI_ENDOFLINE_CHAR ((int)'\n')
+#endif
+
+#define CliInit() 										_CliInit(0, 0, 0, 0)			// No UART but SWO ITM console used!
 #define CliInit1(pUart) 								_CliInit(pUart, CLI_DEFAULT_BAUD, 0, CLI_TXBUFFER_SIZE )
 #define CliInit2(pUart,baud) 							_CliInit(pUart, baud,  0, CLI_TXBUFFER_SIZE)
 #define CliInit4(pUart,baud, pTxBuffer, txBufferSize) 	_CliInit(pUart, baud,  pTxBuffer, txBufferSize)

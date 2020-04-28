@@ -6,14 +6,21 @@
  */
 #include "mod/cli.h"
 
+//#include <chip.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-//#include <stdlib.h>
 
 #include <ado_uart.h>
 #include <ring_buffer.h>
 
+// ******************************************************************
+// Buffer used for pseudo-ITM reads from the host debugger
+// ******************************************************************
+// Value identifying ITM_RxBuffer is ready for next character
+#define ITM_RXBUFFER_EMPTY    0x5AA55AA5
+// variable to receive ITM input characters
+volatile int32_t ITM_RxBuffer = ITM_RXBUFFER_EMPTY;
 
 // Command Interface
 #define C_MAX_CMDSTR_LEN	16
@@ -87,47 +94,66 @@ void CliUartIRQHandler(LPC_USART_T *pUART) {
 // This is also used by all redlib io to stdout (printf,....)
 // We put the char in our TX ringbuffer and initialize sending if needed.
 void CliPutChar(char ch) {
-	if (cliTxInProgress) {
-		// We just put the char into buffer. Tx is already running and will be re-triggered by tx interrupt.
-		if (RingBuffer_Insert(&cliTxRingbuffer, &ch) == 0) {
-			// no place left in buffer
-			// ... TODO ... log event here !?
+	if (cliUart == 0) {
+		// SWD ITM Mode
+		// check if debugger connected and ITM channel enabled for tracing and fifo ready to get a char.
+		if ((CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) &&
+			(ITM->TCR & ITM_TCR_ITMENA_Msk)  && 	   	/* ITM enabled */
+			(ITM->TER & (1UL << 0)     )   ) {     	/* ITM Port #0 enabled */
+			//((ITM->PORT[0].u8 & 0x01) == 0x01) ) {  	// Bit 0 gets 1 if the ITM FIFO has place left for accepting another 'software event packet'.
+			int i = 20;
+			while ((ITM->PORT[0].u32 == 0) && (i-- > 0));	// give it some tries here, but do not block.
+			if (i>0) {
+				ITM->PORT[0].u8 = (uint8_t)ch; 				//(i + (int)'A');  my PC and debugging setup gets it done after at least 8 tries
+			} else {
+				ignoredTxChars++;
+			}
+		} else {
 			ignoredTxChars++;
 		}
 	} else {
-		if (!RingBuffer_IsEmpty(&cliTxRingbuffer)) {
-			// Thats strange. somebody left the buffer 'unsent' -> lets reset
-			RingBuffer_Flush(&cliTxRingbuffer);
-			// TODO .. log event here
-			bufferErrors++;
-		}
-		// No need to put this char in buffer, as it is sent out to UART immediately.
+		// UART Mode
+		if (cliTxInProgress) {
+			// We just put the char into buffer. Tx is already running and will be re-triggered by tx interrupt.
+			if (RingBuffer_Insert(&cliTxRingbuffer, &ch) == 0) {
+				// no place left in buffer
+				// ... TODO ... log event here !?
+				ignoredTxChars++;
+			}
+		} else {
+			if (!RingBuffer_IsEmpty(&cliTxRingbuffer)) {
+				// Thats strange. somebody left the buffer 'unsent' -> lets reset
+				RingBuffer_Flush(&cliTxRingbuffer);
+				// TODO .. log event here
+				bufferErrors++;
+			}
+			// No need to put this char in buffer, as it is sent out to UART immediately.
 
-		// We trigger sending without checking of Line Status here because we trust our own variables and
-		// want to avoid clearing the possible Rx Overrun error by reading the status register !?
-		// I am not sure the 'non occurence' of the Rx Overrun in my first version (without tx interrupt) was caused by this
-		// but its my only explanation i had for what i was seeing then. ( Mainloop was delayed by tx waiting for LineStatus
-		// -> output was cut off after 2 lines and skipped to the end of my RX - Teststring containing a lot more characters
-		// than 2 64 byte lines. Breakpoint for Rx Overrun was never hit !!???
-		cliTxInProgress = true;
-		Chip_UART_IntEnable(cliUart, UART_IER_THREINT);
-		Chip_UART_SendByte(cliUart, (uint8_t) ch);
+			// We trigger sending without checking of Line Status here because we trust our own variables and
+			// want to avoid clearing the possible Rx Overrun error by reading the status register !?
+			// I am not sure the 'non occurence' of the Rx Overrun in my first version (without tx interrupt) was caused by this
+			// but its my only explanation i had for what i was seeing then. ( Mainloop was delayed by tx waiting for LineStatus
+			// -> output was cut off after 2 lines and skipped to the end of my RX - Teststring containing a lot more characters
+			// than 2 64 byte lines. Breakpoint for Rx Overrun was never hit !!???
+			cliTxInProgress = true;
+			Chip_UART_IntEnable(cliUart, UART_IER_THREINT);
+			Chip_UART_SendByte(cliUart, (uint8_t) ch);
+		}
 	}
 }
 
-// Used locally and by redlib for stdio readline... (not tested yet)
+// Used locally ( and by redlib for stdio readline... - not tested yet)
 int CliGetChar() {
-	int32_t stat = Chip_UART_ReadLineStatus(cliUart);
-//	if (stat & UART_LSR_OE) {
-//		return -2;
-//	}
-//	if (stat & UART_LSR_RXFE) {
-//		return -3;
-//	}
-	if (stat & UART_LSR_RDR) {
-		return (int) Chip_UART_ReadByte(cliUart);
+	if (cliUart == 0) {
+		return ITM_ReceiveChar();
+	} else {
+		int32_t stat = Chip_UART_ReadLineStatus(cliUart);
+		if (stat & UART_LSR_RDR) {
+			return (int) Chip_UART_ReadByte(cliUart);
+		}
+		return -1;
 	}
-	return -1;
+
 }
 
 // With this function you can register your custom command handler(s)
@@ -157,17 +183,22 @@ void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSi
 	}
 	cliUart = pUart;
 
-	// Buffer size must be powerOfTwo! Reduce to next lower fitting value in order to not overuse the allocated buffer.
-	while((txBufferSize & (txBufferSize - 1))) {
-		txBufferSize--;
-	}
+	if (pUart != 0) {
+		// UART Mode
+		// Buffer size must be powerOfTwo! Reduce to next lower fitting value in order to not overuse the allocated buffer.
+		while((txBufferSize & (txBufferSize - 1))) {
+			txBufferSize--;
+		}
 
-	if (pTxBuffer == 0) {
-		// No external Data area specified. Lets take our own char array.
-		pTxBuffer = cliTxData;
+		if (pTxBuffer == 0) {
+			// No external Data area specified. Lets take our own char array.
+			pTxBuffer = cliTxData;
+		}
+		RingBuffer_Init(&cliTxRingbuffer, pTxBuffer, sizeof(char), txBufferSize * sizeof(char));
+		InitUart(pUart, baud, CliUartIRQHandler);
+	} else {
+		// This is SWO-ITM mode. Nothing to do here.
 	}
-	RingBuffer_Init(&cliTxRingbuffer, pTxBuffer, sizeof(char), txBufferSize * sizeof(char));
-	InitUart(pUart, baud, CliUartIRQHandler);
 
 	RegisterCommand("cliStat", CliShowStatistics);
 	printf(CLI_PROMPT);
@@ -177,19 +208,16 @@ void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSi
 void CliMain(){
 	int ch;
 
-	// The UART has 16 byte Input buffer
+	// The UART has 16 byte Input buffer. TODO: test if SWO ITM can make this blocking if fed to fast .....
 	// read all available bytes in this main loop call.
 	while ((ch = CliGetChar()) != -1) {
-		// make echo
-		// CliPutChar((char)(ch));
 		if (ch != 0x0a &&
 		    ch != 0x0d) {
 			cliRxBuffer[cliRxPtrIdx++] = (char)(ch);
 		}
 
-		if ((cliRxPtrIdx >= CLI_RXBUFFER_SIZE) ||
-			 ch == 0x0a ||
-			 ch == 0x0d) 	{
+		if ((cliRxPtrIdx >= CLI_RXBUFFER_SIZE - 1) ||
+			 ch == CLI_ENDOFLINE_CHAR ) 	{
 			cliRxBuffer[cliRxPtrIdx] = 0x00;
 			processLine();
 			cliRxPtrIdx = 0;
@@ -202,7 +230,6 @@ void CliMain(){
 void processLine() {
 	bool processed = false;
 	linesProcessed++;
-	//printf("\nRe:%s",cliRxBuffer);
 
 	// first lets copy the received line to our command line
 	strcpy(cmdLine, cliRxBuffer);
@@ -233,15 +260,12 @@ void processLine() {
 	}
 
 	if (!processed) {
-#ifndef RADIATION_TEST		// No need to inform sbd. - nobody is watching ;-)
 		printf("Command '%s' not found. Try one of these:\n",  &cmdLine[0]);
 		for (int cmd = 0; cmd < cliRegisteredCommands; cmd++ ) {
 			printf("'%s' ", commands[cmd].cmdStr);
 		}
 		printf("\n");
-#endif
 	}
-
 
 }
 
@@ -255,17 +279,18 @@ void CliShowStatistics(int argc, char *argv[]){
 	          linesProcessed, cmdsProcessed,  ignoredTxChars, bufferErrors);
 }
 
-
-//#define WRITEFUNC __sys_write
-//#define READFUNC __sys_readc
-
-int __sys_write(int iFileHandle, char *pcBuffer, int iLength)
-{
+// ******************************************************************
+// Redlib C Library function : __sys_write
+//
+// Function called by bottom level of printf routine within C library.
+// This version writes the character(s) either to the configured UART or to the
+// Cortex M3/M4 SWO / ITM interface for display in the ITM Console.
+// ******************************************************************
+int __sys_write(int iFileHandle, char *pcBuffer, int iLength) {
 	unsigned int i;
 	for (i = 0; i < iLength; i++) {
 		CliPutChar(pcBuffer[i]);
 	}
-
 	//Content originally posted in LPCWare by lpcxpresso-support on Fri Dec 18 08:44:32 MST 2015
 	//__sys_write() should returns number of unwritten bytes if an error occurs, otherwise 0 for a successful output of data.
 	return 0;

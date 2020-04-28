@@ -1574,7 +1574,7 @@ __STATIC_INLINE uint32_t ITM_SendChar (uint32_t ch)
   if ((ITM->TCR & ITM_TCR_ITMENA_Msk)                  &&      /* ITM enabled */
       (ITM->TER & (1UL << 0)        )                    )     /* ITM Port #0 enabled */
   {
-    while (ITM->PORT[0].u32 == 0);
+    while (ITM->PORT[0].u32 == 0);				// Bit 0 gets 1 if the ITM FIFO has place left for accepting another 'software event packet'.
     ITM->PORT[0].u8 = (uint8_t) ch;
   }
   return (ch);

@@ -76,7 +76,7 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MISO	 		 */	// J2-12
 	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MOSI  		 */	// J2-11
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38	we use this as SD-Card Chip Select
-	};
+};
 
 void LpcExpresso1769Init(void) {
 	Chip_IOCON_SetPinMuxing(LPC_IOCON, pinmuxing, sizeof(pinmuxing) / sizeof(PINMUX_GRP_T));
