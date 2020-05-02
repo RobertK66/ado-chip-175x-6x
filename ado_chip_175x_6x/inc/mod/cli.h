@@ -14,6 +14,7 @@
 // Do not change the default values here. Use the 'overloaded' CliInitN() macros
 // or make global definitions of the corresponding CLI_CFG_xyz values.
 #define CLI_DEFAULT_BAUD			115200
+#define CLI_DEFAULT_UART			LPC_UART0
 
 #if CLI_CFG_TXBUFFER_SIZE
 	#define CLI_TXBUFFER_SIZE	((uint16_t)CLI_CFG_TXBUFFER_SIZE)
@@ -27,7 +28,16 @@
 	#define CLI_ENDOFLINE_CHAR ((int)'\n')
 #endif
 
-#define CliInit() 										_CliInit(0, 0, 0, 0)			// No UART but SWO ITM console used!
+#if CLI_CFG_SWO_MAX_BUFFERWAITPERMAINLOOP
+	#define CLI_SWO_MAX_BUFFERWAITPERMAINLOOP CLI_CFG_SWO_MAX_BUFFERWAITPERMAINLOOP
+#else
+	#define CLI_SWO_MAX_BUFFERWAITPERMAINLOOP 16
+#endif
+
+#define CliInitSWO() 									_CliInit(0, 0 , 0, CLI_TXBUFFER_SIZE)
+#define CliInitSWO1(pTxBuffer, txBufferSize) 			_CliInit(0, 0 , pTxBuffer, txBufferSize)
+
+#define CliInit() 										_CliInit(CLI_DEFAULT_UART, CLI_DEFAULT_BAUD , 0,  CLI_TXBUFFER_SIZE )
 #define CliInit1(pUart) 								_CliInit(pUart, CLI_DEFAULT_BAUD, 0, CLI_TXBUFFER_SIZE )
 #define CliInit2(pUart,baud) 							_CliInit(pUart, baud,  0, CLI_TXBUFFER_SIZE)
 #define CliInit4(pUart,baud, pTxBuffer, txBufferSize) 	_CliInit(pUart, baud,  pTxBuffer, txBufferSize)

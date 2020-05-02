@@ -6,7 +6,6 @@
  */
 #include "mod/cli.h"
 
-//#include <chip.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -96,19 +95,9 @@ void CliUartIRQHandler(LPC_USART_T *pUART) {
 void CliPutChar(char ch) {
 	if (cliUart == 0) {
 		// SWD ITM Mode
-		// check if debugger connected and ITM channel enabled for tracing and fifo ready to get a char.
-		if ((CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) &&
-			(ITM->TCR & ITM_TCR_ITMENA_Msk)  && 	   	/* ITM enabled */
-			(ITM->TER & (1UL << 0)     )   ) {     	/* ITM Port #0 enabled */
-			//((ITM->PORT[0].u8 & 0x01) == 0x01) ) {  	// Bit 0 gets 1 if the ITM FIFO has place left for accepting another 'software event packet'.
-			int i = 20;
-			while ((ITM->PORT[0].u32 == 0) && (i-- > 0));	// give it some tries here, but do not block.
-			if (i>0) {
-				ITM->PORT[0].u8 = (uint8_t)ch; 				//(i + (int)'A');  my PC and debugging setup gets it done after at least 8 tries
-			} else {
-				ignoredTxChars++;
-			}
-		} else {
+		// We just put the char into tx buffer.
+		if (RingBuffer_Insert(&cliTxRingbuffer, &ch) == 0) {
+			// no place left in buffer
 			ignoredTxChars++;
 		}
 	} else {
@@ -183,18 +172,20 @@ void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSi
 	}
 	cliUart = pUart;
 
+
+	// Buffer size must be powerOfTwo! Reduce to next lower fitting value in order to not overuse the allocated buffer.
+	while((txBufferSize & (txBufferSize - 1))) {
+		txBufferSize--;
+	}
+
+	if (pTxBuffer == 0) {
+		// No external Data area specified. Lets take our own char array.
+		pTxBuffer = cliTxData;
+	}
+	RingBuffer_Init(&cliTxRingbuffer, pTxBuffer, sizeof(char), txBufferSize * sizeof(char));
+
 	if (pUart != 0) {
 		// UART Mode
-		// Buffer size must be powerOfTwo! Reduce to next lower fitting value in order to not overuse the allocated buffer.
-		while((txBufferSize & (txBufferSize - 1))) {
-			txBufferSize--;
-		}
-
-		if (pTxBuffer == 0) {
-			// No external Data area specified. Lets take our own char array.
-			pTxBuffer = cliTxData;
-		}
-		RingBuffer_Init(&cliTxRingbuffer, pTxBuffer, sizeof(char), txBufferSize * sizeof(char));
 		InitUart(pUart, baud, CliUartIRQHandler);
 	} else {
 		// This is SWO-ITM mode. Nothing to do here.
@@ -223,6 +214,31 @@ void CliMain(){
 			cliRxPtrIdx = 0;
 			printf(CLI_PROMPT);
 		}
+	}
+
+	if (cliUart == 0) {
+		// SWO mode. Give some time to get tx buffered chars out to SWO trace port 0
+		int i = CLI_SWO_MAX_BUFFERWAITPERMAINLOOP;
+		while (!RingBuffer_IsEmpty(&cliTxRingbuffer) && (i > 0)) {
+			// We still have bytes to catch up with the written buffer content. Send out next one.
+			if ((CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) &&	// Trace enabled
+				(ITM->TCR & ITM_TCR_ITMENA_Msk)  && 	   			/* ITM enabled */
+				(ITM->TER & (1UL << 0)     )   ) {     				/* ITM Port #0 enabled */
+
+				// Bit 0 of port read gets 1 if the ITM FIFO has place left for accepting another 'software event packet'.
+				while ((ITM->PORT[0].u32 == 0) && (i-- > 0));		// give it some tries here, but do not block.
+				if (i>0) {
+					RingBuffer_Pop(&cliTxRingbuffer, &ch);
+					ITM->PORT[0].u8 = (uint8_t)ch;
+				}
+			} else {
+				//SWO not available.
+				bufferErrors++;
+				ignoredTxChars += RingBuffer_GetCount(&cliTxRingbuffer);
+				RingBuffer_Flush(&cliTxRingbuffer);
+			}
+		}
+
 	}
 }
 
