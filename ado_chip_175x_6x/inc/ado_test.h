@@ -8,8 +8,11 @@
 #ifndef ADO_TEST_H_
 #define ADO_TEST_H_
 
-// structure prototype. (needed because of self reference!)
+#include <Chip.h>
+
+// type prototype. (needed because of self reference!)
 typedef struct test_failure_s test_failure_t;
+typedef struct test_s test_t;
 
 // structure definition
 typedef struct test_failure_s {
@@ -27,6 +30,19 @@ typedef struct test_result_s {
 	test_failure_t* failures;
 } test_result_t;
 
+typedef struct test_s {
+	const test_t *testBase;
+	char *	name;
+	uint8_t testCnt;
+	void (*runIt)(test_result_t* result, const test_t* test);
+} test_t;
+
+//typedef struct test_suite_s {
+//	char *	name;
+//	uint8_t testCnt;
+//	const test_function_s *tests;
+//} test_suite_t;
+//
 
 #if TEST_CFG_MAXFAILURES
 	#define TEST_MAX_FAILURES	TEST_CFG_MAXFAILURES
@@ -34,16 +50,21 @@ typedef struct test_result_s {
 	#define TEST_MAX_FAILURES	10
 #endif
 
+// Test runner API
+void testRunAll(test_result_t* result, const test_t *test);
+
 
 // private prototype. Use with defined testFailed(a,b) macro.
 void _testFailed(const char* file, const char* func, int ln, test_result_t* res, char* message);
 void testClearFailures();
+
 
 #define testFailed(pRes, message) _testFailed(__FILE__, __func__, __LINE__, pRes, message)
 #define testPassed(a)	 a->run++;
 
 #define test_ok ((test_failure_t *)0)
 
-
+#define TEST_CASE(fn) {0,0,1,(void (*)(test_result_t* result, const test_t* test))fn}
+#define TEST_SUITE(name, tests) { tests, name, (uint8_t)(sizeof(tests) / sizeof(test_t)), testRunAll }
 
 #endif /* ADO_TEST_H_ */

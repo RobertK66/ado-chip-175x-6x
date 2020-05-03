@@ -99,7 +99,7 @@ void cli_testPrintFNotusingHeap(test_result_t* res){
 	float f = 2.2;
 	int i = 55;
 
-	printf("A test String writing something to the output UART f:%.6f i:%d\n", f, i);
+	printf("A test String writing something to the output cons f:%.6f i:%d\n", f, i);
 
 	usedheap_after = (uint32_t)__end_of_heap - heapBase;
 

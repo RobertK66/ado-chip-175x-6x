@@ -11,6 +11,8 @@
 #include <chip.h>
 #include <stdio.h>
 
+#include <ado_test.h>
+
 #include "system.h"
 
 #include "mod/cli.h"
@@ -19,7 +21,13 @@
 #include "tests/test_systemconfigs.h"
 
 
+static const test_t moduleTests[] = {
+   trbTestSuite
+};
+
 int main(void) {
+
+
 	blue_on();
 	red_off();
 	green_off();
@@ -29,12 +37,19 @@ int main(void) {
 				   // To check on the test result and error message hit Debugger-'Pause' ('Suspend Debug Session') and check result structure....
 
 	// Select UART to be used for command line interface.
-	//CliInit1(LPC_UART2);
-	CliInitSWO();			// This configures SWO ITM Console as in/output
+	CliInit1(LPC_UART2);
+	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
+
 	// Test modules
-	TestRbInit(true);// this auto starts all the test. It can be restarted with cliCommand after initial run.
+	TestRbInit(true);
 	TestScInit(true);
 
+	test_result_t result;
+	result.run = 0;
+	result.failed = 0;
+	result.failures = test_ok;
+
+	testRunAll(&result, &moduleTests[0]);
 	while(1) {
 		CliMain();
 	}

@@ -17,18 +17,39 @@
 #include "../system.h"
 #include <mod/cli.h>
 
+//// Test Functions prototypes
+//void trb_test_basics(test_result_t* result);
+//void trb_test_wraparound(test_result_t* result);
+//void trb_head_tail_wraparound(test_result_t* result);
+//
+//// Array of test functions. Cast the function pointers to test suite pointers having one entry and no name
+//// to fit into oo like test structure. TestSuite --> TestCase
+//static const test_t trbTests[] = {
+//   TEST_CASE(trb_test_basics),
+//   TEST_CASE(trb_test_wraparound),
+//   TEST_CASE(trb_head_tail_wraparound)
+//};
+//
+//const test_t trbTestSuite = TEST_SUITE("My Tests", trbTests);
+
+//// Test Suite executing all module tests.
+//static const test_t trbTestSuite = {
+//	"Ringbuffer Tests",
+//	(uint8_t)(sizeof(trbTests) / sizeof(test_t)),
+//	testRunAll
+//};
+
 static const int C_TEST_SIZE = 16;
 
 // prototypes
 void trb_testAllCmd(int argc, char *argv[]);
-void trb_testAll(test_result_t* result);
 
-
-void TestRbInit(bool autoStart) {
+const test_t * TestRbInit(bool autoStart) {
 	RegisterCommand("testAll", trb_testAllCmd);
 	if (autoStart) {
 		trb_testAllCmd(0,(char**)0);
 	}
+	return &trbTestSuite;
 }
 
 void print_failures(test_failure_t *fp){
@@ -37,8 +58,6 @@ void print_failures(test_failure_t *fp){
 	if (fp->nextFailure != test_ok) {
 		print_failures(fp->nextFailure);
 	}
-	//free(fp);
-
 }
 
 void trb_testAllCmd(int argc, char *argv[]){
@@ -50,7 +69,7 @@ void trb_testAllCmd(int argc, char *argv[]){
 	blue_on();			// indicate tests running;
 	red_off();
 	green_off();
-	trb_testAll(&result);
+	testRunAll(&result, &trbTestSuite);
 	printf("%d/%d Tests ok\n", result.run - result.failed, result.run);
 	blue_off();
 	if (result.failed > 0) {
@@ -225,11 +244,20 @@ void trb_head_tail_wraparound(test_result_t *res) {
 	testPassed(res);
 }
 
-
-void trb_testAll(test_result_t* result) {
-	trb_test_basics(result);
-	trb_test_wraparound(result);
-	trb_head_tail_wraparound(result);
-}
+//
+//void trb_testAll(test_result_t* result, const test_t *test, uint8_t count) {
+//	int i = 0;
+//	while (i < count) {
+//		if (test->testCnt == 1) {
+//			// This is a test function not a test suite, cast the call pointer to its original function pointer.
+//			void (*callit)(test_result_t* result) = (void (*)(test_result_t* result))(test->runAll);
+//			callit(result);
+//		} else {
+//			test->runAll(result, test, test->testCnt);
+//		}
+//		i++;
+//		test++;
+//	}
+//}
 
 
