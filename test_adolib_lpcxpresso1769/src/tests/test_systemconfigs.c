@@ -38,50 +38,8 @@ extern char _pvHeapLimit __attribute__((weak));
 extern char _pvHeapStart __attribute__((weak));
 extern unsigned int __end_of_heap;
 
-// prototypes
-void tsc_testAllCmd(int argc, char *argv[]);
-void tsc_testAll(test_result_t* result);
 
-void print_failures2(test_failure_t *fp){
-	printf("Error in %s/%s() at %d:\n",fp->fileName, fp->testName, fp->lineNr);
-	printf("  %s\n\n", fp->message);
-	if (fp->nextFailure != test_ok) {
-		print_failures2(fp->nextFailure);
-	}
-}
-
-void TestScInit(bool autoStart) {
-	RegisterCommand("testAllSys", tsc_testAllCmd);
-	if (autoStart) {
-		tsc_testAllCmd(0,(char**)0);
-	}
-}
-
-void tsc_testAllCmd(int argc, char *argv[]){
-	test_result_t result;
-	result.run = 0;
-	result.failed = 0;
-	result.failures = test_ok;
-
-	blue_on();			// indicate tests running;
-	red_off();
-	green_off();
-	tsc_testAll(&result);
-	printf("%d/%d Tests ok\n", result.run - result.failed, result.run);
-	blue_off();
-	if (result.failed > 0) {
-		print_failures2(result.failures);
-		testClearFailures();
-		red_on();
-		green_off();
-	} else {
-		red_off();
-		green_on();
-	}
-}
-
-
-void cli_testPrintFNotusingHeap(test_result_t* res){
+void sys_testPrintFNotusingHeap(test_result_t* res){
 	uint32_t heapBase = (uint32_t)& _pvHeapStart;
 	uint32_t usedheap_before;
 	uint32_t usedheap_after;
@@ -139,12 +97,6 @@ void cli_testPrintFNotusingHeap(test_result_t* res){
 
 
 	testPassed(res);
-}
-
-
-
-void tsc_testAll(test_result_t* result) {
-	cli_testPrintFNotusingHeap(result);
 }
 
 

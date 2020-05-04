@@ -146,7 +146,7 @@ int CliGetChar() {
 }
 
 // With this function you can register your custom command handler(s)
-void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[])) {
+void CliRegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[])) {
 	// TODO check if duplicate entry !!!
 	if ( cliRegisteredCommands < CLI_MAX_COMMANDS) {
 		strncpy(commands[cliRegisteredCommands].cmdStr,cmdStr,C_MAX_CMDSTR_LEN);
@@ -191,7 +191,7 @@ void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSi
 		// This is SWO-ITM mode. Nothing to do here.
 	}
 
-	RegisterCommand("cliStat", CliShowStatistics);
+	CliRegisterCommand("cliStat", CliShowStatistics);
 	printf(CLI_PROMPT);
 }
 

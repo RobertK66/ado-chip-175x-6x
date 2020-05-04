@@ -32,7 +32,7 @@ void testClearFailures(void) {
 }
 
 void testRunAll(test_result_t* result, const test_t *test) {
-	if (test->testCnt == 1) {
+	if ((test->testCnt == 1) && (test->name == 0)) {
 		// This is a single test function not a test suite, cast the call pointer to its original function pointer.
 		void (*callit)(test_result_t* result) = (void (*)(test_result_t* result))(test->runIt);
 		callit(result);

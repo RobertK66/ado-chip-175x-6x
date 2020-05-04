@@ -46,6 +46,6 @@
 void _CliInit(LPC_USART_T *pUart, int baud, char *pTxBuffer, uint16_t txBufferSize);	// module init to be called once prior mainloop. (Use macros for calling with various par lists.)
 void CliMain(void);								// module routine should participate in regular mainloop calls.
 
-void RegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[]));	// Assign Callback for your custom commands.
+void CliRegisterCommand(char* cmdStr, void (*callback)(int argc, char *argv[]));	// Assign Callback for your custom commands.
 
 #endif /* MOD_CLI_CLI_H_ */

@@ -127,6 +127,10 @@ test_result_t TestCliInit() {
 	result.run = 0;
 	result.failed = 0;
 	result.failures = test_ok;
+	blue_on();
+	red_off();
+	green_off();
+
 
 	cli_testAll(&result);
 

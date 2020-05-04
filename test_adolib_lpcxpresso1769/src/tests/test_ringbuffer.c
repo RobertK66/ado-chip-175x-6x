@@ -44,44 +44,44 @@ static const int C_TEST_SIZE = 16;
 // prototypes
 void trb_testAllCmd(int argc, char *argv[]);
 
-const test_t * TestRbInit(bool autoStart) {
-	RegisterCommand("testAll", trb_testAllCmd);
-	if (autoStart) {
-		trb_testAllCmd(0,(char**)0);
-	}
-	return &trbTestSuite;
-}
+//const test_t * TestRbInit(bool autoStart) {
+//	RegisterCommand("testAll", trb_testAllCmd);
+//	if (autoStart) {
+//		trb_testAllCmd(0,(char**)0);
+//	}
+//	return &trbTestSuite;
+//}
 
-void print_failures(test_failure_t *fp){
-	printf("Error in %s/%s() at %d:\n",fp->fileName, fp->testName, fp->lineNr);
-	printf("  %s\n\n", fp->message);
-	if (fp->nextFailure != test_ok) {
-		print_failures(fp->nextFailure);
-	}
-}
+//void print_failures(test_failure_t *fp){
+//	printf("Error in %s/%s() at %d:\n",fp->fileName, fp->testName, fp->lineNr);
+//	printf("  %s\n\n", fp->message);
+//	if (fp->nextFailure != test_ok) {
+//		print_failures(fp->nextFailure);
+//	}
+//}
 
-void trb_testAllCmd(int argc, char *argv[]){
-	test_result_t result;
-	result.run = 0;
-	result.failed = 0;
-	result.failures = test_ok;
-
-	blue_on();			// indicate tests running;
-	red_off();
-	green_off();
-	testRunAll(&result, &trbTestSuite);
-	printf("%d/%d Tests ok\n", result.run - result.failed, result.run);
-	blue_off();
-	if (result.failed > 0) {
-		print_failures(result.failures);
-		testClearFailures();
-		red_on();
-		green_off();
-	} else {
-		red_off();
-		green_on();
-	}
-}
+//void trb_testAllCmd(int argc, char *argv[]){
+//	test_result_t result;
+//	result.run = 0;
+//	result.failed = 0;
+//	result.failures = test_ok;
+//
+//	blue_on();			// indicate tests running;
+//	red_off();
+//	green_off();
+//	testRunAll(&result, &trbTestSuite);
+//	printf("%d/%d Tests ok\n", result.run - result.failed, result.run);
+//	blue_off();
+//	if (result.failed > 0) {
+//		print_failures(result.failures);
+//		testClearFailures();
+//		red_on();
+//		green_off();
+//	} else {
+//		red_off();
+//		green_on();
+//	}
+//}
 
 
 void trb_test_basics(test_result_t *res) {
