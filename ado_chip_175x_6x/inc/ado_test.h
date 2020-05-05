@@ -67,4 +67,7 @@ void testClearFailures();
 #define TEST_CASE(fn) {0,0,1,(void (*)(test_result_t* result, const test_t* test))fn}
 #define TEST_SUITE(name, tests) { tests, name, (uint8_t)(sizeof(tests) / sizeof(test_t)), testRunAll }
 
+#define IS_TESTCASE(tstPtr) ((tstPtr->testCnt == 1) && (tstPtr->name == 0))
+#define IS_TESTSUITE(tstPtr) (!IS_TESTCASE(tstPtr))
+
 #endif /* ADO_TEST_H_ */
