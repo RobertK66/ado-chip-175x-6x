@@ -13,10 +13,12 @@
 
 // Test Functions prototypes
 void sys_testPrintFNotusingHeap(test_result_t* result);
+void sys_testusedLibraryConfig(test_result_t* result);
 
 // Array of test functions.
 static const test_t sysTests[] = {
-   TEST_CASE(sys_testPrintFNotusingHeap)
+   TEST_CASE(sys_testPrintFNotusingHeap),
+   TEST_CASE(sys_testusedLibraryConfig)
 };
 
 // Module Test Suite

@@ -6,6 +6,8 @@
  */
 #include "ado_test.h"
 
+#include <string.h>
+
 static int				TestUsedFailures	=	0;
 static test_failure_t	TestFailures[TEST_MAX_FAILURES];
 
@@ -49,3 +51,34 @@ void testRunAll(test_result_t* result, const test_t *test) {
 		looptest++;
 	}
 }
+
+const test_t* testFindSuite(const test_t* tests, char *name) {
+ 	const test_t* found = 0;
+	if (IS_TESTSUITE(tests)) {
+		if (strcmp(tests->name, name) == 0) {
+			return tests;
+		}
+		for (int i = 0; i< tests->testCnt; i++) {
+			found = testFindSuite(&tests->testBase[i], name);
+			if (found != 0) {
+				break;
+			}
+		}
+	}
+	return found;
+}
+
+void testListSuites(const test_t *tests,uint8_t intend, void (*elementFound)(char *, uint8_t,  uint8_t)) {
+	if (IS_TESTSUITE(tests)) {
+		elementFound(tests->name, tests->testCnt, intend);
+		intend = intend + 2;
+		for(int i = 0; i<tests->testCnt; i++) {
+			testListSuites(&tests->testBase[i], intend, elementFound);
+		}
+	}
+}
+
+//void foundTs(uint8_t intend, char* name, uint8_t count) {
+//	for(int i = 0; i<intend; i++) printf(" ");
+//	printf("%s [%d]\n",name, count);
+//}

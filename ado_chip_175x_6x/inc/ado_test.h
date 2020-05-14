@@ -37,28 +37,21 @@ typedef struct test_s {
 	void (*runIt)(test_result_t* result, const test_t* test);
 } test_t;
 
-//typedef struct test_suite_s {
-//	char *	name;
-//	uint8_t testCnt;
-//	const test_function_s *tests;
-//} test_suite_t;
-//
-
 #if TEST_CFG_MAXFAILURES
 	#define TEST_MAX_FAILURES	TEST_CFG_MAXFAILURES
 #else
 	#define TEST_MAX_FAILURES	10
 #endif
 
-// Test runner API
+// Test API functions
 void testRunAll(test_result_t* result, const test_t *test);
 
-
-// private prototype. Use with defined testFailed(a,b) macro.
-void _testFailed(const char* file, const char* func, int ln, test_result_t* res, char* message);
+void testListSuites(const test_t *tests, uint8_t intend, void (*)(char *, uint8_t,  uint8_t));
+const test_t* testFindSuite(const test_t* tests, char *name);
 void testClearFailures();
 
 
+void _testFailed(const char* file, const char* func, int ln, test_result_t* res, char* message);
 #define testFailed(pRes, message) _testFailed(__FILE__, __func__, __LINE__, pRes, message)
 #define testPassed(a)	 a->run++;
 

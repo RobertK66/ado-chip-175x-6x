@@ -18,22 +18,26 @@
 
 #include "system.h"
 
-#include "mod/cli.h"
+#include <mod/cli.h>
+#include <ado_libmain.h>
 #include "tests/test_cli.h"
 #include "tests/test_ringbuffer.h"
 #include "tests/test_systemconfigs.h"
 
-// collect all module tests to one test suite.
+// collect all module tests together into one test suite.
 static const test_t moduleTests[] = {
    trbTestSuite,
    sysTestSuite
 };
-
 static const test_t moduleTestSuite = TEST_SUITE("main", moduleTests);
 
-
+// Function prototypes
+//void testListSuites(const test_t *tests, int intend);
+//const test_t* findTestSuite(const test_t* tests, char *name);
 void print_failures(test_failure_t *fp);
 void main_testCmd(int argc, char *argv[]);
+void main_showVersionCmd(int argc, char *argv[]);
+
 
 int main(void) {
 	// 'special test module'
@@ -41,13 +45,16 @@ int main(void) {
 				   // To check on the test result and error message hit Debugger-'Pause' ('Suspend Debug Session') and check result structure....
 
 	// Select UART to be used for command line interface.
-	//CliInit1(LPC_UART2);
+	CliInit1(LPC_UART2);
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
-	CliInitSWO();			// This configures SWO ITM Console as CLI in/output
+	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
 	// register test command ...
 	CliRegisterCommand("test", main_testCmd);
-	// ... and autostart it for running all test.
+	CliRegisterCommand("ver", main_showVersionCmd);
+
+	// ... and auto start it for running all test.
+	main_showVersionCmd(0,0);
 	main_testCmd(0,0);
 
 	while(1) {
@@ -64,50 +71,35 @@ void print_failures(test_failure_t *fp){
 	}
 }
 
-void listTests(const test_t *tests, int intend);
-const test_t* findTest(const test_t* tests, char *name);
-
-const test_t* findTest(const test_t* tests, char *name) {
- 	const test_t* found = 0;
-	if (IS_TESTSUITE(tests)) {
-		if (strcmp(tests->name, name) == 0) {
-			return tests;
-		}
-		for (int i = 0; i< tests->testCnt; i++) {
-			found = findTest(&tests->testBase[i], name);
-			if (found != 0) {
-				break;
-			}
-		}
-	}
-	return found;
+void listElement(char* name, uint8_t count, uint8_t intend) {
+	for(int i = 0; i<intend; i++) printf(" ");
+	printf("%s [%d]\n",name, count);
 }
 
-void listTests(const test_t *tests, int intend) {
-	if (IS_TESTSUITE(tests)) {
-		for(int i = 0; i<intend; i++) printf(" ");
-		printf("%s [%d]\n",tests->name, tests->testCnt);
-		intend = intend + 2;
-		for(int i = 0; i<tests->testCnt; i++) {
-			listTests(&tests->testBase[i], intend);
-		}
-	}
+void main_showVersionCmd(int argc, char *argv[]) {
+
+
+
+	printf("Lib Version:  %s\n", adoGetVersion());
+	printf("Lib Build:    %s\n",  adoGetBuild());
+	printf("Lib CompConf: %s\n",  adoGetCompileConf());
 }
+
 
 void main_testCmd(int argc, char *argv[]) {
 	const test_t *root = &moduleTestSuite;
 	const test_t *toRun = &moduleTestSuite;
 
 	if ((argc == 1) && (strcmp(argv[0],"?") == 0) ){
-		listTests(root, 0);
+		testListSuites(root, 0, listElement);
 		return;
 	}
 	if (argc > 0) {
-		toRun = findTest(root, argv[0]);
+		toRun = testFindSuite(root, argv[0]);
 		if (toRun == 0) {
 			printf("Test '%s' not available.\n", argv[0]);
-			printf("Available:\n", argv[0]);
-			listTests(root, 0);
+			printf("Available:\n");
+			testListSuites(root, 2, listElement);
 			return;
 		}
 	}
