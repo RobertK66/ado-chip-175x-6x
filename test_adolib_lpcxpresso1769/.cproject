@@ -359,10 +359,16 @@
 	</storageModule>
 	<storageModule moduleId="com.crt.advproject"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
-		<configuration configurationName="Debug">
+		<configuration configurationName="TestConfig_2">
+			<resource resourceType="PROJECT" workspacePath="/test_adolib_lpcxpresso1769"/>
+		</configuration>
+		<configuration configurationName="TestConfig_1">
 			<resource resourceType="PROJECT" workspacePath="/test_adolib_lpcxpresso1769"/>
 		</configuration>
 		<configuration configurationName="Release">
+			<resource resourceType="PROJECT" workspacePath="/test_adolib_lpcxpresso1769"/>
+		</configuration>
+		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/test_adolib_lpcxpresso1769"/>
 		</configuration>
 	</storageModule>

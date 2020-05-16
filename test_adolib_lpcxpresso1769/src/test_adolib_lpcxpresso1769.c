@@ -13,14 +13,14 @@
 #include <string.h>
 #include <stdlib.h>
 
-
+#include <ado_libmain.h>
 #include <ado_test.h>
+#include <stopwatch.h>
+#include <mod/cli.h>
 
 #include "system.h"
-
-#include <mod/cli.h>
-#include <ado_libmain.h>
 #include "tests/test_cli.h"
+
 #include "tests/test_ringbuffer.h"
 #include "tests/test_systemconfigs.h"
 
@@ -48,6 +48,8 @@ int main(void) {
 	CliInit1(LPC_UART2);
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
+
+	StopWatch_Init();		// TODO: ad flexible Timer usage...
 
 	// register test command ...
 	CliRegisterCommand("test", main_testCmd);
@@ -77,14 +79,10 @@ void listElement(char* name, uint8_t count, uint8_t intend) {
 }
 
 void main_showVersionCmd(int argc, char *argv[]) {
-
-
-
 	printf("Lib Version:  %s\n", adoGetVersion());
 	printf("Lib Build:    %s\n",  adoGetBuild());
 	printf("Lib CompConf: %s\n",  adoGetCompileConf());
 }
-
 
 void main_testCmd(int argc, char *argv[]) {
 	const test_t *root = &moduleTestSuite;

@@ -11,78 +11,14 @@
 #include <string.h>
 
 #include <ado_test.h>
+#include <mod/cli.h>
+#include <stopwatch.h>
 
 #include "test_ringbuffer.h"
-
 #include "../system.h"
-#include <mod/cli.h>
 
-//// Test Functions prototypes
-//void trb_test_basics(test_result_t* result);
-//void trb_test_wraparound(test_result_t* result);
-//void trb_head_tail_wraparound(test_result_t* result);
-//
-//// Array of test functions. Cast the function pointers to test suite pointers having one entry and no name
-//// to fit into oo like test structure. TestSuite --> TestCase
-//static const test_t trbTests[] = {
-//   TEST_CASE(trb_test_basics),
-//   TEST_CASE(trb_test_wraparound),
-//   TEST_CASE(trb_head_tail_wraparound)
-//};
-//
-//const test_t trbTestSuite = TEST_SUITE("My Tests", trbTests);
-
-//// Test Suite executing all module tests.
-//static const test_t trbTestSuite = {
-//	"Ringbuffer Tests",
-//	(uint8_t)(sizeof(trbTests) / sizeof(test_t)),
-//	testRunAll
-//};
 
 static const int C_TEST_SIZE = 16;
-
-// prototypes
-void trb_testAllCmd(int argc, char *argv[]);
-
-//const test_t * TestRbInit(bool autoStart) {
-//	RegisterCommand("testAll", trb_testAllCmd);
-//	if (autoStart) {
-//		trb_testAllCmd(0,(char**)0);
-//	}
-//	return &trbTestSuite;
-//}
-
-//void print_failures(test_failure_t *fp){
-//	printf("Error in %s/%s() at %d:\n",fp->fileName, fp->testName, fp->lineNr);
-//	printf("  %s\n\n", fp->message);
-//	if (fp->nextFailure != test_ok) {
-//		print_failures(fp->nextFailure);
-//	}
-//}
-
-//void trb_testAllCmd(int argc, char *argv[]){
-//	test_result_t result;
-//	result.run = 0;
-//	result.failed = 0;
-//	result.failures = test_ok;
-//
-//	blue_on();			// indicate tests running;
-//	red_off();
-//	green_off();
-//	testRunAll(&result, &trbTestSuite);
-//	printf("%d/%d Tests ok\n", result.run - result.failed, result.run);
-//	blue_off();
-//	if (result.failed > 0) {
-//		print_failures(result.failures);
-//		testClearFailures();
-//		red_on();
-//		green_off();
-//	} else {
-//		red_off();
-//		green_on();
-//	}
-//}
-
 
 void trb_test_basics(test_result_t *res) {
 	char data[C_TEST_SIZE];
@@ -201,7 +137,6 @@ void trb_head_tail_wraparound(test_result_t *res) {
 	RINGBUFF_T	testbuffer;
 	char test[] = "0123456789012345";
 
-
 	// prefill the data
     memset(data,'$', C_TEST_SIZE);
 
@@ -244,20 +179,42 @@ void trb_head_tail_wraparound(test_result_t *res) {
 	testPassed(res);
 }
 
-//
-//void trb_testAll(test_result_t* result, const test_t *test, uint8_t count) {
-//	int i = 0;
-//	while (i < count) {
-//		if (test->testCnt == 1) {
-//			// This is a test function not a test suite, cast the call pointer to its original function pointer.
-//			void (*callit)(test_result_t* result) = (void (*)(test_result_t* result))(test->runAll);
-//			callit(result);
-//		} else {
-//			test->runAll(result, test, test->testCnt);
-//		}
-//		i++;
-//		test++;
-//	}
-//}
+void trb_performance_char(test_result_t *res) {
+	char data[C_TEST_SIZE];
+	RINGBUFF_T	testbuffer;
+	char test[] = "0123456789012345";
+
+	RingBuffer_Init(&testbuffer, (void*)data, 1, C_TEST_SIZE);
+
+	uint32_t startTim =  StopWatch_Start();
+
+	for (int i=0;i<1000;i++) {
+		// now we put 10 bytes into buffer
+		RingBuffer_InsertMult(&testbuffer, "ABCDEFGHIJ", 10);
+
+		// and read it out again
+		RingBuffer_PopMult(&testbuffer,&test[0],8);
+	}
+
+	uint32_t ticks1 = StopWatch_Elapsed(startTim);
+
+	for (int i=0;i<1000;i++) {
+		// now we put 10 bytes into buffer
+		RingBuffer_Insert(&testbuffer, "A");
+
+		// and read it out again
+		RingBuffer_Pop(&testbuffer,&test[0]);
+	}
+
+	uint32_t ticks2 = StopWatch_Elapsed(startTim) - ticks1;
+
+	uint32_t time1ms = StopWatch_TicksToMs(ticks1);
+	uint32_t time2ms = StopWatch_TicksToMs(ticks2);
 
 
+	if (time2ms < time1ms) {
+		testFailed(res, "????");
+		return;
+	}
+	testPassed(res);
+}
