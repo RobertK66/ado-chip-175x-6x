@@ -49,7 +49,7 @@ int main(void) {
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
-	StopWatch_Init();		// TODO: ad flexible Timer usage...
+	StopWatch_Init1(LPC_TIMER0);
 
 	// register test command ...
 	CliRegisterCommand("test", main_testCmd);

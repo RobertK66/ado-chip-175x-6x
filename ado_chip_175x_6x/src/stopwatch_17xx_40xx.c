@@ -37,6 +37,7 @@
  ****************************************************************************/
 
 /* Precompute these to optimize runtime */
+static LPC_TIMER_T *swTimer = 0;
 static uint32_t ticksPerSecond;
 static uint32_t ticksPerMs;
 static uint32_t ticksPerUs;
@@ -54,18 +55,38 @@ static uint32_t ticksPerUs;
  ****************************************************************************/
 
 /* Initialize stopwatch */
-void StopWatch_Init(void)
+void _StopWatch_Init(LPC_TIMER_T *timer)
 {
-	/* Use timer 1. Set prescaler to divide by 8, should give ticks at 3.75 MHz.
-	   That gives a useable stopwatch measurement range of about 19 minutes
-	   (if system clock is running at 120 MHz). */
+	if (timer != 0) {
+		swTimer = timer;
+	} else {
+		// If nothing given use timer 1.
+		swTimer = LPC_TIMER1;
+	}
+	/*  Set prescaler to divide by 8, should give ticks at 3.75 MHz.
+	    That gives a useable stopwatch measurement range of about 19 minutes
+	    (if system clock is running at 120 MHz). */
 	const uint32_t prescaleDivisor = 8;
-	Chip_TIMER_Init(LPC_TIMER1);
-	Chip_TIMER_PrescaleSet(LPC_TIMER1, prescaleDivisor - 1);
-	Chip_TIMER_Enable(LPC_TIMER1);
+	Chip_TIMER_Init(swTimer);
+	Chip_TIMER_PrescaleSet(swTimer, prescaleDivisor - 1);
+	Chip_TIMER_Enable(swTimer);
 
 	/* Pre-compute tick rate. Note that peripheral clock supplied to the
 	   timer includes a fixed divide by 4. */
+	ticksPerSecond = Chip_Clock_GetSystemClockRate() / prescaleDivisor / 4;
+	ticksPerMs = ticksPerSecond / 1000;
+	ticksPerUs = ticksPerSecond / 1000000;
+}
+
+/* Initialize stopwatch with preconfigured and enabled timer*/
+void _StopWatch_Use(LPC_TIMER_T *timer) {
+	if (timer != 0) {
+		swTimer = timer;
+	} else {
+		// If nothing given use timer 1.
+		swTimer = LPC_TIMER1;
+	}
+	const uint32_t prescaleDivisor = Chip_TIMER_ReadPrescale(swTimer) + 1;
 	ticksPerSecond = Chip_Clock_GetSystemClockRate() / prescaleDivisor / 4;
 	ticksPerMs = ticksPerSecond / 1000;
 	ticksPerUs = ticksPerSecond / 1000000;

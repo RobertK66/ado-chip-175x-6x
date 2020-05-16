@@ -40,10 +40,23 @@
  */
 
 /**
- * @brief	Initialize stopwatch
+ * @brief	Initialize given timer to use as stopwatch
+ * @param   time	: Timer to be used. If 0 we use TIMER1
  * @return	Nothing
  */
-void StopWatch_Init(void);
+void _StopWatch_Init(LPC_TIMER_T *timer);
+#define StopWatch_Init() _StopWatch_Init(0)
+#define StopWatch_Init1(timer) _StopWatch_Init(timer)
+
+/**
+ * @brief	Use the given timer with actual config values as stopwatch. No timer init done!
+ * @param   time	: Timer to be used. If 0 we use TIMER1
+ * @return	Nothing
+ */
+void _StopWatch_Use(LPC_TIMER_T *timer);
+#define StopWatch_Use() _StopWatch_Use(0)
+#define StopWatch_Use1(timer) _StopWatch_Use(timer)
+
 
 /**
  * @brief	Start a stopwatch
