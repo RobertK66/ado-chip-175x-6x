@@ -92,7 +92,7 @@ void sys_testPrintFNotusingHeap(test_result_t* res){
 		testFailed(res,"No Heap used!?");
 		return;
 	}
-	if ((usedheap_after - usedheap_before) < 36) {
+	if ((usedheap_after - usedheap_before) < 10) {
 		testFailed(res,"Too less Heap used!?");
 		return;
 	}

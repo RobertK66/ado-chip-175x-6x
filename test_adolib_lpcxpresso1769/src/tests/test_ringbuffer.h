@@ -13,13 +13,15 @@ void trb_test_basics(test_result_t* result);
 void trb_test_wraparound(test_result_t* result);
 void trb_head_tail_wraparound(test_result_t* result);
 void trb_performance_char(test_result_t* result);
+void trb_performance_ptrs(test_result_t* result);
 
 // Array of test functions.
 static const test_t trbTests[] = {
    TEST_CASE(trb_test_basics),
    TEST_CASE(trb_test_wraparound),
    TEST_CASE(trb_head_tail_wraparound),
-   TEST_CASE(trb_performance_char)
+   TEST_CASE(trb_performance_char),
+   TEST_CASE(trb_performance_ptrs)
 };
 
 // Module Test Suite

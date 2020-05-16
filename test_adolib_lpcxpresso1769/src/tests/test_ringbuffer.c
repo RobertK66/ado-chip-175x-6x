@@ -216,13 +216,13 @@ void trb_performance_char(test_result_t *res) {
 	uint32_t time1us = StopWatch_TicksToUs(ticks1);
 	uint32_t time2us = StopWatch_TicksToUs(ticks2);
 
-	printf("Push/pop test: %d/%d us.\n", time1us, time2us);
+	printf("Push/pop test (char): %d/%d us.\n", time1us, time2us);
 
 	if (time2us > 30100) {
 		testFailed(res, "Ringbuffer using char (single pushPop) is to slow!");
 		return;
 	}
-	if (time1us > 8200) {
+	if (time1us > 8500) {
 		testFailed(res, "Ringbuffer using char (multi pushPop) is to slow!");
 		return;
 	}
@@ -231,56 +231,56 @@ void trb_performance_char(test_result_t *res) {
 }
 
 
-//void trb_performance_ptrs(test_result_t *res) {
-//	(void *)data[C_TEST_SIZE];
-//	RINGBUFF_T	testbuffer;
-//	(void *)test[C_TEST_SIZE];
-//
-//	for (int i=0;i<C_TEST_SIZE;i++) {
-//		test[i] = (void*)trb_performance_ptrs;
-//	}
-//
-//	RingBuffer_Init(&testbuffer, (void*)data, sizeof(void*), C_TEST_SIZE);
-//
-//	// Disable all irq to make measurements reproducible.
-//	__asm volatile ("cpsid i");
-//	uint32_t startTim =  StopWatch_Start();
-//
-//	for (int i=0;i<1000;i++) {
-//		// now we put 10 bytes into buffer
-//		RingBuffer_InsertMult(&testbuffer, &test[0], 10);
-//
-//		// and read it out again
-//		RingBuffer_PopMult(&testbuffer,&test[0],8);
-//	}
-//
-//	uint32_t ticks1 = StopWatch_Elapsed(startTim);
-//
-//	for (int i=0;i<10000;i++) {
-//		// now we put 10 bytes into buffer
-//		RingBuffer_Insert(&testbuffer, "A");
-//
-//		// and read it out again
-//		RingBuffer_Pop(&testbuffer,&test[0]);
-//	}
-//
-//	uint32_t ticks2 = StopWatch_Elapsed(startTim) - ticks1;
-//	// Enable all irq again.
-//	__asm volatile ("cpsie i");
-//
-//	uint32_t time1us = StopWatch_TicksToUs(ticks1);
-//	uint32_t time2us = StopWatch_TicksToUs(ticks2);
-//
-//	printf("Push/pop test: %d/%d us.\n", time1us, time2us);
-//
-//	if (time2us > 30100) {
-//		testFailed(res, "Ringbuffer using char (single pushPop) is to slow!");
-//		return;
-//	}
-//	if (time1us > 7900) {
-//		testFailed(res, "Ringbuffer using char (multi pushPop) is to slow!");
-//		return;
-//	}
-//
-//	testPassed(res);
-//}
+void trb_performance_ptrs(test_result_t *res) {
+	void *data[C_TEST_SIZE];
+	RINGBUFF_T	testbuffer;
+	void *test[C_TEST_SIZE];
+
+	for (int i=0;i<C_TEST_SIZE;i++) {
+		test[i] = (void*)trb_performance_ptrs;
+	}
+
+	RingBuffer_Init(&testbuffer, (void*)data, sizeof(void*), C_TEST_SIZE);
+
+	// Disable all irq to make measurements reproducible.
+	__asm volatile ("cpsid i");
+	uint32_t startTim =  StopWatch_Start();
+
+	for (int i=0;i<1000;i++) {
+		// now we put 10 bytes into buffer
+		RingBuffer_InsertMult(&testbuffer, &test[0], 10);
+
+		// and read it out again
+		RingBuffer_PopMult(&testbuffer,&test[0],8);
+	}
+
+	uint32_t ticks1 = StopWatch_Elapsed(startTim);
+
+	for (int i=0;i<10000;i++) {
+		// now we put 10 bytes into buffer
+		RingBuffer_Insert(&testbuffer, trb_performance_ptrs);
+
+		// and read it out again
+		RingBuffer_Pop(&testbuffer,&test[0]);
+	}
+
+	uint32_t ticks2 = StopWatch_Elapsed(startTim) - ticks1;
+	// Enable all irq again.
+	__asm volatile ("cpsie i");
+
+	uint32_t time1us = StopWatch_TicksToUs(ticks1);
+	uint32_t time2us = StopWatch_TicksToUs(ticks2);
+
+	printf("Push/pop test (ptr): %d/%d us.\n", time1us, time2us);
+
+	if (time2us > 32400) {
+		testFailed(res, "Ringbuffer using ptr (single pushPop) is to slow!");
+		return;
+	}
+	if (time1us > 8800) {
+		testFailed(res, "Ringbuffer using ptr (multi pushPop) is to slow!");
+		return;
+	}
+
+	testPassed(res);
+}

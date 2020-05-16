@@ -71,10 +71,14 @@ int RingBuffer_Insert(RINGBUFF_T *RingBuff, const void *data)
 	if (RingBuffer_IsFull(RingBuff))
 		return 0;
 
-	if (RingBuff->itemSz == 1) {								// This gives 32,8ms iso 37,1ms // 34,4 ms with memcopy (for 1000 inserts) .....
+	if (RingBuff->itemSz == 1) {
 		ptr += RB_INDH(RingBuff);
 		*ptr = *((uint8_t *)(data));
-	} else {
+	} else if (RingBuff->itemSz == 4) {
+		ptr += ( RB_INDH(RingBuff) << 2);
+		*((uint32_t *)(ptr)) = *((uint32_t *)(data));
+	} else
+	{
 		ptr += RB_INDH(RingBuff) * RingBuff->itemSz;
 		memcpy(ptr, data, RingBuff->itemSz);
 	}
@@ -130,6 +134,9 @@ int RingBuffer_Pop(RINGBUFF_T *RingBuff, void *data)
 	if (RingBuff->itemSz == 1) {
 		ptr += RB_INDT(RingBuff);
 		*((uint8_t *)(data)) = *ptr;
+	} else if (RingBuff->itemSz == 4) {
+		ptr += (RB_INDT(RingBuff) << 2);
+		*((uint32_t *)(data)) = *((uint32_t *)(ptr));
 	} else {
 		ptr += RB_INDT(RingBuff) * RingBuff->itemSz;
 		memcpy(data, ptr, RingBuff->itemSz);
