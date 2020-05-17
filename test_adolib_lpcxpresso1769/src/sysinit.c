@@ -72,9 +72,11 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA      */ // PAD8 	this connects to boards e2prom with address 0x50
 	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
 	
-	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
-	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MISO	 		 */	// J2-12
-	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MOSI  		 */	// J2-11
+	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
+	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recomended' SSL for SSP0
+	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
+	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
+
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38	we use this as SD-Card Chip Select
 };
 
@@ -92,11 +94,16 @@ void LpcExpresso1769Init(void) {
 	
 	/* --- SPI pins no open drain --- */
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 15);
+	Chip_IOCON_DisableOD(LPC_IOCON, 0, 16);
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 17);
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 18);
 	// SD card CS output
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 4, true);
 	sd_cs_high();
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 16, true);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);
+
 //
 //	   Chip_SPI_Init(LPC_SPI); 		// All default values as above, Bitrate is set to 4000000 with this!
 //	    Chip_SPI_Int_Enable(LPC_SPI);

@@ -96,7 +96,7 @@ void _StopWatch_Use(LPC_TIMER_T *timer) {
 uint32_t StopWatch_Start(void)
 {
 	/* Return the current timer count. */
-	return Chip_TIMER_ReadCount(LPC_TIMER1);
+	return Chip_TIMER_ReadCount(swTimer);
 }
 
 /* Returns number of ticks per second of the stopwatch timer */

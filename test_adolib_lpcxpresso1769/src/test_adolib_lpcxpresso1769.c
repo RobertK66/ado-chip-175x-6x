@@ -24,6 +24,10 @@
 #include "tests/test_ringbuffer.h"
 #include "tests/test_systemconfigs.h"
 
+#include "mod/ado_ssp.h"
+#include "mod/ado_sdcard.h"
+
+
 // collect all module tests together into one test suite.
 static const test_t moduleTests[] = {
    trbTestSuite,
@@ -50,6 +54,8 @@ int main(void) {
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
 	StopWatch_Init1(LPC_TIMER0);
+	ssp01_init();
+	SdcInit(SSP_BUS0);
 
 	// register test command ...
 	CliRegisterCommand("test", main_testCmd);
