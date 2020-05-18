@@ -136,43 +136,46 @@ typedef enum _SSP_STATUS {
 } SSP_STATUS_T;
 
 /**
- * @brief SSP Type of Interrupt Mask
+ * @brief SSP Type of Interrupt Mask usable for IM, RIS and IC (only first 2 used there).
  */
 typedef enum _SSP_INTMASK {
-	SSP_RORIM = ((uint32_t)(1 << 0)),	/**< Overun */
-	SSP_RTIM = ((uint32_t)(1 << 1)),/**< TimeOut */
-	SSP_RXIM = ((uint32_t)(1 << 2)),/**< Rx FIFO is at least half full */
-	SSP_TXIM = ((uint32_t)(1 << 3)),/**< Tx FIFO is at least half empty */
-	SSP_INT_MASK_BITMASK = ((uint32_t)(0xF)),
+	SSP_INT_ROR =  ((uint32_t)(1 << 0)),		/**< Rx Overun */
+	SSP_INT_RTMO = ((uint32_t)(1 << 1)),		/**< TimeOut */
+	SSP_INT_RXHF = ((uint32_t)(1 << 2)),		/**< Rx FIFO is at least half full */
+	SSP_INT_TXHE = ((uint32_t)(1 << 3)),		/**< Tx FIFO is at least half empty */
+	SSP_INT_BITMASK = ((uint32_t)(0xF)),
+	SSP_INTCLR_BITMASK = ((uint32_t)(0x3))
 } SSP_INTMASK_T;
 
-/**
- * @brief SSP Type of Mask Interrupt Status
- */
-typedef enum _SSP_MASKINTSTATUS {
-	SSP_RORMIS = ((uint32_t)(1 << 0)),	/**< Overun */
-	SSP_RTMIS = ((uint32_t)(1 << 1)),	/**< TimeOut */
-	SSP_RXMIS = ((uint32_t)(1 << 2)),	/**< Rx FIFO is at least half full */
-	SSP_TXMIS = ((uint32_t)(1 << 3)),	/**< Tx FIFO is at least half empty */
-	SSP_MASK_INT_STAT_BITMASK = ((uint32_t)(0xF)),
-} SSP_MASKINTSTATUS_T;
 
-/**
- * @brief SSP Type of Raw Interrupt Status
- */
-typedef enum _SSP_RAWINTSTATUS {
-	SSP_RORRIS = ((uint32_t)(1 << 0)),	/**< Overun */
-	SSP_RTRIS = ((uint32_t)(1 << 1)),	/**< TimeOut */
-	SSP_RXRIS = ((uint32_t)(1 << 2)),	/**< Rx FIFO is at least half full */
-	SSP_TXRIS = ((uint32_t)(1 << 3)),	/**< Tx FIFO is at least half empty */
-	SSP_RAW_INT_STAT_BITMASK = ((uint32_t)(0xF)),
-} SSP_RAWINTSTATUS_T;
-
-typedef enum _SSP_INTCLEAR {
-	SSP_RORIC = 0x0,
-	SSP_RTIC = 0x1,
-	SSP_INT_CLEAR_BITMASK = 0x3,
-} SSP_INTCLEAR_T;
+// RKR: removed redundant (and wrong _SSP_INTCLEAR !!) bitmasks.
+///**
+// * @brief SSP Type of Mask Interrupt Status
+// */
+//typedef enum _SSP_MASKINTSTATUS {
+//	SSP_RORMIS = ((uint32_t)(1 << 0)),	/**< Overun */
+//	SSP_RTMIS = ((uint32_t)(1 << 1)),	/**< TimeOut */
+//	SSP_RXMIS = ((uint32_t)(1 << 2)),	/**< Rx FIFO is at least half full */
+//	SSP_TXMIS = ((uint32_t)(1 << 3)),	/**< Tx FIFO is at least half empty */
+//	SSP_MASK_INT_STAT_BITMASK = ((uint32_t)(0xF)),
+//} SSP_MASKINTSTATUS_T;
+//
+///**
+// * @brief SSP Type of Raw Interrupt Status
+// */
+//typedef enum _SSP_RAWINTSTATUS {
+//	SSP_RORRIS = ((uint32_t)(1 << 0)),	/**< Overun */
+//	SSP_RTRIS = ((uint32_t)(1 << 1)),	/**< TimeOut */
+//	SSP_RXRIS = ((uint32_t)(1 << 2)),	/**< Rx FIFO is at least half full */
+//	SSP_TXRIS = ((uint32_t)(1 << 3)),	/**< Tx FIFO is at least half empty */
+//	SSP_RAW_INT_STAT_BITMASK = ((uint32_t)(0xF)),
+//} SSP_RAWINTSTATUS_T;
+//
+//typedef enum _SSP_INTCLEAR {
+//	SSP_RORIC = 0x0,
+//	SSP_RTIC = 0x1,
+//	SSP_INT_CLEAR_BITMASK = 0x3,
+//} SSP_INTCLEAR_T;
 
 typedef enum _SSP_DMA {
 	SSP_DMA_RX = (1u),	/**< DMA RX Enable */
@@ -313,7 +316,7 @@ STATIC INLINE uint32_t Chip_SSP_GetIntStatus(LPC_SSP_T *pSSP)
  * @return	 Raw interrupt status corresponding to interrupt condition , SET or RESET
  * @note	Get the status of each interrupt condition ,regardless of whether or not the interrupt is enabled
  */
-STATIC INLINE IntStatus Chip_SSP_GetRawIntStatus(LPC_SSP_T *pSSP, SSP_RAWINTSTATUS_T RawInt)
+STATIC INLINE IntStatus Chip_SSP_GetRawIntStatus(LPC_SSP_T *pSSP, SSP_INTMASK_T RawInt)
 {
 	return (pSSP->RIS & RawInt) ? SET : RESET;
 }
@@ -338,9 +341,9 @@ STATIC INLINE uint8_t Chip_SSP_GetDataSize(LPC_SSP_T *pSSP)
  * @return	 Nothing
  * @note	Software can clear one or more interrupt condition(s) in the SSP controller
  */
-STATIC INLINE void Chip_SSP_ClearIntPending(LPC_SSP_T *pSSP, SSP_INTCLEAR_T IntClear)
+STATIC INLINE void Chip_SSP_ClearIntPending(LPC_SSP_T *pSSP, SSP_INTMASK_T IntClear)
 {
-	pSSP->ICR = IntClear;
+	pSSP->ICR = (IntClear & SSP_INTCLR_BITMASK);
 }
 
 /**
@@ -348,9 +351,9 @@ STATIC INLINE void Chip_SSP_ClearIntPending(LPC_SSP_T *pSSP, SSP_INTCLEAR_T IntC
  * @param	pSSP		: The base of SSP peripheral on the chip
  * @return	 Nothing
  */
-STATIC INLINE void Chip_SSP_Int_Enable(LPC_SSP_T *pSSP)
+STATIC INLINE void Chip_SSP_Int_Enable(LPC_SSP_T *pSSP, SSP_INTMASK_T intMask)
 {
-	pSSP->IMSC |= SSP_TXIM;
+	pSSP->IMSC |= (intMask & SSP_INT_BITMASK);
 }
 
 /**
@@ -358,9 +361,9 @@ STATIC INLINE void Chip_SSP_Int_Enable(LPC_SSP_T *pSSP)
  * @param	pSSP		: The base of SSP peripheral on the chip
  * @return	 Nothing
  */
-STATIC INLINE void Chip_SSP_Int_Disable(LPC_SSP_T *pSSP)
+STATIC INLINE void Chip_SSP_Int_Disable(LPC_SSP_T *pSSP, SSP_INTMASK_T intMask)
 {
-	pSSP->IMSC &= (~SSP_TXIM);
+	pSSP->IMSC &= (~(intMask & SSP_INT_BITMASK));
 }
 
 /**

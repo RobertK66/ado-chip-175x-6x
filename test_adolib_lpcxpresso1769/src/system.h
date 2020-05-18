@@ -21,8 +21,8 @@
 #define green_off()		Chip_GPIO_SetPinOutHigh(LPC_GPIO, 3, 25)
 #define green_toggle()	Chip_GPIO_SetPinToggle(LPC_GPIO, 3, 25)
 
-#define sd_cs_high()	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4)
-#define sd_cs_low()		Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4)
+//#define sd_cs_high()	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4)
+//#define sd_cs_low()		Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4)
 
 
 #if DEBUG_TESTCONFIG_2

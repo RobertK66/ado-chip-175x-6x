@@ -77,7 +77,7 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
 	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
 
-	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38	we use this as SD-Card Chip Select
+	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
 void LpcExpresso1769Init(void) {
@@ -97,10 +97,10 @@ void LpcExpresso1769Init(void) {
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 16);
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 17);
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 18);
-	// SD card CS output
+	// Test GPIO
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 4, true);
-	sd_cs_high();
-
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+	// SD card CS output
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 16, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);
 

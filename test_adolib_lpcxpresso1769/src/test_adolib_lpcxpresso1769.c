@@ -45,6 +45,9 @@ void main_showVersionCmd(int argc, char *argv[]);
 
 int main(void) {
 	// 'special test module'
+
+
+
 	TestCliInit(); // This routine will block, if there was an error. No Cli would be available then....
 				   // To check on the test result and error message hit Debugger-'Pause' ('Suspend Debug Session') and check result structure....
 

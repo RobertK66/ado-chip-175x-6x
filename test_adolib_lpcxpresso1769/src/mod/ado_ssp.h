@@ -37,7 +37,7 @@ ssp_jobdef_ret_t ssp_add_job2( ssp_busnr_t busNr,
 							   uint8_t *array_to_store,
 							   uint16_t bytes_to_read,
 							   uint8_t **job_status,
-							   bool(*chipSelectHandler)(bool select));
+							   void(*chipSelectHandler)(bool select));
 
 void DumpSspJobs(uint8_t bus);
 

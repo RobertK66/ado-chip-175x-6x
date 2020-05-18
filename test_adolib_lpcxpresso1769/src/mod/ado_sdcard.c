@@ -56,12 +56,12 @@ void SdcInit(ssp_busnr_t bus) {
 // Be careful here! This Callbacks are called from IRQ !!!
 // Do not do any complicated logic here!!!
 // Transfer all things to be done to next mainloop....
-bool SdcChipSelect(bool select) {
-	Chip_GPIO_SetPinState(LPC_GPIO, SDC_CS_PORT, SDC_CS_PIN, !select);
+void SdcChipSelect(bool select) {
+	//Chip_GPIO_SetPinState(LPC_GPIO, SDC_CS_PORT, SDC_CS_PIN, !select);
 //	if (!select) {
 //		card_busy = false;
 //	}
-	return true;
+//	return true;
 }
 
 
@@ -70,9 +70,13 @@ void SdcMyFirstCmd(int argc, char *argv[]) {
 	//DumpSspJobs(sdcBusNr);
 
 	uint8_t tx[6];
-	uint8_t rx[2];
+	uint8_t rx[512];
 	uint8_t *job_status = NULL;
-	volatile uint32_t helper;
+	uint8_t *job_status2 = NULL;
+
+	uint32_t helper;
+	uint32_t helper2;
+
 
 	if((argc > 0) && strcmp(argv[0],"po") == 0) {
 		/* prepare (after power up with 80 clock without CS!!!! */
@@ -94,12 +98,16 @@ void SdcMyFirstCmd(int argc, char *argv[]) {
 
 	rx[0] = 0x33;
 	rx[1] = 0x44;
-	rx[2] = 0x44;
+	rx[2] = 0x45;
 
 
-	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 3, &job_status, SdcChipSelect))
+	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 3, &job_status, 0))
 	{
 		printf("Error1");
+	}
+	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status2, 0))
+	{
+		printf("Error1a");
 	}
 
 	helper = 0;
@@ -109,6 +117,19 @@ void SdcMyFirstCmd(int argc, char *argv[]) {
 		helper++;
 	}
 
+	helper2 = 0;
+	while ((*job_status2 != SSP_JOB_STATE_DONE) && (helper2 < 1000000))
+	{
+		/* Wait for job to finish */
+		helper2++;
+	}
+
+    if (helper >= 1000000) {
+    	printf("Error3 Job A not finished.");
+    }
+    if (helper2 >= 1000000) {
+     	printf("Error3 Job B not finished.");
+     }
 	if (rx[0] != 0x01)
 	{
 		/* Error - Flash could not be accessed */

@@ -161,7 +161,7 @@ uint32_t Chip_SSP_RWFrames_Blocking(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_s
 	}
 
 	/* Clear status */
-	Chip_SSP_ClearIntPending(pSSP, SSP_INT_CLEAR_BITMASK);
+	Chip_SSP_ClearIntPending(pSSP, SSP_INTCLR_BITMASK);
 
 	if (Chip_SSP_GetDataSize(pSSP) > SSP_BITS_8) {
 		while (xf_setup->rx_cnt < xf_setup->length || xf_setup->tx_cnt < xf_setup->length) {
@@ -171,7 +171,7 @@ uint32_t Chip_SSP_RWFrames_Blocking(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_s
 			}
 
 			/* Check overrun error */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -187,7 +187,7 @@ uint32_t Chip_SSP_RWFrames_Blocking(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_s
 			}
 
 			/* Check overrun error */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -216,7 +216,7 @@ uint32_t Chip_SSP_WriteFrames_Blocking(LPC_SSP_T *pSSP, uint8_t *buffer, uint32_
 	}
 
 	/* Clear status */
-	Chip_SSP_ClearIntPending(pSSP, SSP_INT_CLEAR_BITMASK);
+	Chip_SSP_ClearIntPending(pSSP, SSP_INTCLR_BITMASK);
 
 	if (Chip_SSP_GetDataSize(pSSP) > SSP_BITS_8) {
 		uint16_t *wdata16;
@@ -232,7 +232,7 @@ uint32_t Chip_SSP_WriteFrames_Blocking(LPC_SSP_T *pSSP, uint8_t *buffer, uint32_
 			}
 
 			/* Check overrun error */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -257,7 +257,7 @@ uint32_t Chip_SSP_WriteFrames_Blocking(LPC_SSP_T *pSSP, uint8_t *buffer, uint32_
 			}
 
 			/* Check overrun error */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -284,7 +284,7 @@ uint32_t Chip_SSP_ReadFrames_Blocking(LPC_SSP_T *pSSP, uint8_t *buffer, uint32_t
 	}
 
 	/* Clear status */
-	Chip_SSP_ClearIntPending(pSSP, SSP_INT_CLEAR_BITMASK);
+	Chip_SSP_ClearIntPending(pSSP, SSP_INTCLR_BITMASK);
 
 	if (Chip_SSP_GetDataSize(pSSP) > SSP_BITS_8) {
 		uint16_t *rdata16;
@@ -299,7 +299,7 @@ uint32_t Chip_SSP_ReadFrames_Blocking(LPC_SSP_T *pSSP, uint8_t *buffer, uint32_t
 			}
 
 			/* Check overrun error */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -324,7 +324,7 @@ uint32_t Chip_SSP_ReadFrames_Blocking(LPC_SSP_T *pSSP, uint8_t *buffer, uint32_t
 			}
 
 			/* Check overrun error */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -354,14 +354,14 @@ void Chip_SSP_Int_FlushData(LPC_SSP_T *pSSP)
 	}
 
 	/* Clear status */
-	Chip_SSP_ClearIntPending(pSSP, SSP_INT_CLEAR_BITMASK);
+	Chip_SSP_ClearIntPending(pSSP, SSP_INTCLR_BITMASK);
 }
 
 /* SSP Interrupt Read/Write with 8-bit frame width */
 Status Chip_SSP_Int_RWFrames8Bits(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_setup)
 {
 	/* Check overrun error in RIS register */
-	if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+	if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 		return ERROR;
 	}
 
@@ -374,7 +374,7 @@ Status Chip_SSP_Int_RWFrames8Bits(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_set
 			SSP_Write1BFifo(pSSP, xf_setup);
 
 			/* Check overrun error in RIS register */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
@@ -392,7 +392,7 @@ Status Chip_SSP_Int_RWFrames8Bits(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_set
 Status Chip_SSP_Int_RWFrames16Bits(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_setup)
 {
 	/* Check overrun error in RIS register */
-	if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+	if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 		return ERROR;
 	}
 
@@ -405,7 +405,7 @@ Status Chip_SSP_Int_RWFrames16Bits(LPC_SSP_T *pSSP, Chip_SSP_DATA_SETUP_T *xf_se
 			SSP_Write2BFifo(pSSP, xf_setup);
 
 			/* Check overrun error in RIS register */
-			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_RORRIS) == SET) {
+			if (Chip_SSP_GetRawIntStatus(pSSP, SSP_INT_ROR) == SET) {
 				return ERROR;
 			}
 
