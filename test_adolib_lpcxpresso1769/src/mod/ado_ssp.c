@@ -34,7 +34,7 @@ typedef struct ssp_job_s
 	uint16_t rxFrameIdx;
 	uint16_t bytes_read;					//TODO. replace redundant values with defines (framesProcesssed / rx IDX ...)
 	uint8_t status;
-	bool dir_tx;
+	//bool dir_tx;
 	void(*chipSelectHandler)(bool select);
 } volatile ssp_job_t;
 
@@ -79,7 +79,7 @@ void ssp_init(LPC_SSP_T *device, uint8_t busNr, IRQn_Type irq, uint32_t irqPrio 
 
 	Chip_SSP_Set_Mode(device, SSP_MODE_MASTER);
 	Chip_SSP_SetFormat(device, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);
-	Chip_SSP_SetBitRate(device, 2000000);
+	Chip_SSP_SetBitRate(device, 1000000);
 
 	Chip_SSP_DisableLoopBack(device);
 	Chip_SSP_Enable(device);
@@ -137,20 +137,38 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 		return;
 	}
 
-	// Refill the tx buffer, if more bytes needed for job transmissions (Tx + Rx)
-	if (cur_job->framesToProcess > cur_job->framesProcessed) {
-		FillTxBuffer(device, cur_job, 8) ;
-	}
-
-	// process all Rx frames, if there are some.
-	while (device->SR & SSP_STAT_RNE) {
-		uint32_t temp = device->DR;
-		if (cur_job->rxFrameIdx++ < cur_job->bytes_to_send) {
-			// we are receiving data during TX bytes -> discard
+	uint32_t status;
+	uint32_t temp;
+	bool     rxEmpty = false;
+	for (int i=0;i<8;i++) {
+		//Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+		status = device->SR;
+		//Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
+		// RX
+		if (status & SSP_STAT_RNE) {
+			temp = device->DR;
+			if (cur_job->rxFrameIdx++ >= cur_job->bytes_to_send) {
+				cur_job->array_to_read[cur_job->bytes_read] = temp;
+				cur_job->bytes_read++;
+			}
 		} else {
-			// This is a real Rx byte -> store as result
-			cur_job->array_to_read[cur_job->bytes_read] = temp;
-			cur_job->bytes_read++;
+			rxEmpty = true;
+		}
+		// TX
+		if ((status & SSP_STAT_TNF) &&
+			(cur_job->framesProcessed < cur_job->framesToProcess)) {
+
+			if (cur_job->framesProcessed < cur_job->bytes_to_send) {
+				temp = cur_job->array_to_send[cur_job->framesProcessed];
+			} else {
+				temp = 0xFF;
+			}
+			cur_job->framesProcessed++;
+			device->DR = temp;
+		} else {
+			if (rxEmpty) {
+				break;
+			}
 		}
 	}
 
@@ -178,6 +196,9 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 			jobs->current_job = 0;
 		}
 
+		Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+		Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
+
 		//ADO_SSP_DUMP_RX(device);
 
 		/* Check if jobs are pending */
@@ -195,6 +216,8 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 
 			FillTxBuffer(device, cur_job, 5);
 		}
+
+
 	}
 
 	//portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
@@ -215,19 +238,17 @@ void FillTxBuffer(LPC_SSP_T *device, ssp_job_t *job, uint8_t maxPerFill) {
 		processEnd = job->framesToProcess;
 	}
 
+	uint32_t temp;
 	// try to fill in as much as possible into TX Buffer
 	while (((device->SR & SSP_STAT_TNF)) && (job->framesProcessed < processEnd))
 	{
-		if (job->dir_tx) { // Take Tx bytes
-			device->DR = job->array_to_send[job->framesProcessed++];
-			// Switch to Rx when out of TX bytes
-			if (job->framesProcessed == job->bytes_to_send) {
-				job->dir_tx = false;
-			}
-		} else {		// Take dummy
-			device->DR = 0xFF;
-			job->framesProcessed++;
+		if (job->framesProcessed < job->bytes_to_send) {
+			temp = job->array_to_send[job->framesProcessed];
+		} else {
+			temp = 0xFF;
 		}
+		job->framesProcessed++;
+		device->DR = temp;
 	}
 }
 
@@ -286,16 +307,16 @@ ssp_jobdef_ret_t ssp_add_job2( ssp_busnr_t busNr,
 		jobs->job[positionNewJob].chipSelectHandler = chipSelectHandler;
 		jobs->job[positionNewJob].status = SSP_JOB_STATE_PENDING;
 
-		if (bytes_to_send > 0)
-		{
-			/* Job contains transfer and read eventually */
-			jobs->job[positionNewJob].dir_tx = true;
-		}
-		else
-		{
-			/* Job contains readout only - transfer part is skipped */
-			jobs->job[positionNewJob].dir_tx = false;
-		}
+//		if (bytes_to_send > 0)
+//		{
+//			/* Job contains transfer and read eventually */
+//			jobs->job[positionNewJob].dir_tx = true;
+//		}
+//		else
+//		{
+//			/* Job contains readout only - transfer part is skipped */
+//			jobs->job[positionNewJob].dir_tx = false;
+//		}
 
 		if (jobs->jobs_pending == 0)
 		{

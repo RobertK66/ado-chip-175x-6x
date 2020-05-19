@@ -73,7 +73,7 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
 	
 	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
-	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recomended' SSL for SSP0
+	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recommended' SSL for SSP0
 	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
 	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
 

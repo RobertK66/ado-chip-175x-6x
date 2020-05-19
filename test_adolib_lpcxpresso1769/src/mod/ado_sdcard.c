@@ -130,10 +130,11 @@ void SdcMyFirstCmd(int argc, char *argv[]) {
     if (helper2 >= 1000000) {
      	printf("Error3 Job B not finished.");
      }
-	if (rx[0] != 0x01)
+	if (rx[1] != 0x01)
 	{
 		/* Error - Flash could not be accessed */
 		printf("Error2 %02X %02X %02X", rx[0], rx[1], rx[2]);
+	} else {
+		printf("Reset ok!");
 	}
-
 }
