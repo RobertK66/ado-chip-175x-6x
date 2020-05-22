@@ -118,9 +118,6 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 	ssp_jobs_t *jobs = &ssp_jobs[busNr];
 	ssp_job_t *cur_job = &(jobs->job[jobs->current_job]);
 
-//	// Clear Rx TMO int if pending.
-//	Chip_SSP_ClearIntPending(device, SSP_INT_RTMO);
-
 	// Check if there is a valid active job.
 	if (cur_job->status != SSP_JOB_STATE_ACTIVE) {
 		ADO_SSP_DUMP_RX(device);
@@ -140,6 +137,9 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 	uint32_t status;
 	uint32_t temp;
 	bool     rxEmpty = false;
+	uint8_t *readPtr = &cur_job->array_to_read[cur_job->bytes_read];
+
+
 	for (int i=0;i<8;i++) {
 		//Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 		status = device->SR;
@@ -148,8 +148,8 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 		if (status & SSP_STAT_RNE) {
 			temp = device->DR;
 			if (cur_job->rxFrameIdx++ >= cur_job->bytes_to_send) {
-				cur_job->array_to_read[cur_job->bytes_read] = temp;
-				cur_job->bytes_read++;
+				*readPtr++ = temp;
+				//cur_job->bytes_read++;
 			}
 		} else {
 			rxEmpty = true;
@@ -171,6 +171,8 @@ void AdoSspIrqHandler(LPC_SSP_T *device, ssp_busnr_t busNr) {
 			}
 		}
 	}
+
+	cur_job->bytes_read += (uint16_t)(readPtr - &cur_job->array_to_read[cur_job->bytes_read]);
 
 	if (cur_job->bytes_read >= (cur_job->framesToProcess - cur_job->bytes_to_send)) {
 		/* All bytes read */

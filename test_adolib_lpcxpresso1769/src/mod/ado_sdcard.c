@@ -38,6 +38,8 @@
 
 
 void SdcMyFirstCmd(int argc, char *argv[]);
+void SdcWithDMACmd(int argc, char *argv[]);
+
 static ssp_busnr_t sdcBusNr = -1;
 //volatile bool card_busy;
 
@@ -45,27 +47,102 @@ static ssp_busnr_t sdcBusNr = -1;
 void SdcInit(ssp_busnr_t bus) {
 	sdcBusNr = bus;
 
-//	Chip_IOCON_PinMuxSet(LPC_IOCON, SDC_CS_PORT, SDC_CS_PIN, IOCON_FUNC0 | IOCON_MODE_INACT);
-//	Chip_IOCON_DisableOD(LPC_IOCON, SDC_CS_PORT, SDC_CS_PIN);
-//	Chip_GPIO_SetPinState(LPC_GPIO, SDC_CS_PORT, SDC_CS_PIN, true);
+	Chip_GPDMA_Init(LPC_GPDMA);
+	NVIC_EnableIRQ (DMA_IRQn);
+
 
 	CliRegisterCommand("sdc", SdcMyFirstCmd);
+	CliRegisterCommand("dma", SdcWithDMACmd);
 }
 
 //
 // Be careful here! This Callbacks are called from IRQ !!!
 // Do not do any complicated logic here!!!
 // Transfer all things to be done to next mainloop....
-void SdcChipSelect(bool select) {
-	//Chip_GPIO_SetPinState(LPC_GPIO, SDC_CS_PORT, SDC_CS_PIN, !select);
-//	if (!select) {
-//		card_busy = false;
-//	}
-//	return true;
+//void SdcChipSelect(bool select) {
+//	//Chip_GPIO_SetPinState(LPC_GPIO, SDC_CS_PORT, SDC_CS_PIN, !select);
+////	if (!select) {
+////		card_busy = false;
+////	}
+////	return true;
+//}
+//
+
+
+volatile uint8_t dmaStat = 0x00;
+uint8_t dmaTxDataBuffer[512];
+uint8_t dmaRxDataBuffer[512];
+
+
+
+void DMA_IRQHandler(void) {
+	IntStatus s;
+	s = Chip_GPDMA_IntGetStatus(LPC_GPDMA, GPDMA_STAT_INTTC , 1);
+	if (s != RESET) {
+		Chip_GPDMA_ClearIntPending(LPC_GPDMA, GPDMA_STATCLR_INTTC , 1);
+		dmaStat &= ~0x01;
+	}
+	s = Chip_GPDMA_IntGetStatus(LPC_GPDMA, GPDMA_STAT_INTTC , 2);
+	if (s != RESET) {
+		Chip_GPDMA_ClearIntPending(LPC_GPDMA, GPDMA_STATCLR_INTTC , 2);
+		dmaStat &= ~0x02;
+	}
+
+}
+
+
+
+void SdcWithDMACmd(int argc, char *argv[]) {
+	uint32_t helper = 0;
+	uint8_t dataCntToSend = 6;
+	uint8_t dataCntToReceive = 64;
+	uint8_t bytesToProcess = dataCntToSend + dataCntToReceive;
+
+	for (int i = 0; i<bytesToProcess; i++) {
+		dmaTxDataBuffer[i] = 0xFF;
+		dmaRxDataBuffer[i] = 0;
+	}
+	dmaTxDataBuffer[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
+	dmaTxDataBuffer[1] = 0;
+	dmaTxDataBuffer[2] = 0;
+	dmaTxDataBuffer[3] = 0;
+	dmaTxDataBuffer[4] = 0;
+	dmaTxDataBuffer[5] = 0x95;
+
+	dmaStat = 0x03;
+
+	Chip_SSP_DMA_Enable(LPC_SSP0);
+	// Receiver Channel
+	Chip_GPDMA_Transfer(LPC_GPDMA, 1, GPDMA_CONN_SSP0_Rx, (uint32_t)dmaRxDataBuffer, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, bytesToProcess);
+	// Transfer Channel
+	Chip_GPDMA_Transfer(LPC_GPDMA, 2, (uint32_t)dmaTxDataBuffer, GPDMA_CONN_SSP0_Tx, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, bytesToProcess);
+
+
+
+	while ((dmaStat != 0) && (helper < 1000000))
+		{
+			/* Wait for both dma channels to finish */
+			helper++;
+		}
+
+	if (helper >= 1000000) {
+	    	printf("Error DMA not finished.");
+	}
+
+	if (dmaRxDataBuffer[7] != 0x01)
+		{
+			/* Error - Flash could not be accessed */
+			printf("Error2 %02X %02X %02X", dmaRxDataBuffer[6], dmaRxDataBuffer[7], dmaRxDataBuffer[8]);
+		} else {
+			printf("DMA Reset ok!");
+		}
+
+	//Chip_SSP_DMA_Disable(LPC_SSP0);
 }
 
 
 void SdcMyFirstCmd(int argc, char *argv[]) {
+	Chip_SSP_DMA_Disable(LPC_SSP0);
 	printf("SDCard on Bus %d\n",sdcBusNr);
 	//DumpSspJobs(sdcBusNr);
 
@@ -105,10 +182,10 @@ void SdcMyFirstCmd(int argc, char *argv[]) {
 	{
 		printf("Error1");
 	}
-	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status2, 0))
-	{
-		printf("Error1a");
-	}
+//	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status2, 0))
+//	{
+//		printf("Error1a");
+//	}
 
 	helper = 0;
 	while ((*job_status != SSP_JOB_STATE_DONE) && (helper < 1000000))
