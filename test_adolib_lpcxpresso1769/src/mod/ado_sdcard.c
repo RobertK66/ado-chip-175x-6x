@@ -71,7 +71,7 @@ void SdcInit(ssp_busnr_t bus) {
 
 volatile uint8_t dmaStat = 0x00;
 uint8_t dmaTxDataBuffer[512];
-uint8_t dmaRxDataBuffer[512];
+//uint8_t dmaRxDataBuffer[512];
 
 
 
@@ -112,12 +112,10 @@ void SdcWithDMACmd(int argc, char *argv[]) {
 	dmaStat = 0x03;
 
 	Chip_SSP_DMA_Enable(LPC_SSP0);
-	// Receiver Channel
-	Chip_GPDMA_Transfer(LPC_GPDMA, 1, GPDMA_CONN_SSP0_Rx, (uint32_t)dmaRxDataBuffer, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, bytesToProcess);
+	// Receiver Channel - As the receiver channel is always behuind the transmitter, we can use the same buffer here (original tx data gets overwritten by RX!)
+	Chip_GPDMA_Transfer(LPC_GPDMA, 1, GPDMA_CONN_SSP0_Rx, (uint32_t)dmaTxDataBuffer, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, bytesToProcess);
 	// Transfer Channel
 	Chip_GPDMA_Transfer(LPC_GPDMA, 2, (uint32_t)dmaTxDataBuffer, GPDMA_CONN_SSP0_Tx, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, bytesToProcess);
-
-
 
 	while ((dmaStat != 0) && (helper < 1000000))
 		{
@@ -129,7 +127,7 @@ void SdcWithDMACmd(int argc, char *argv[]) {
 	    	printf("Error DMA not finished.");
 	}
 
-	if (dmaRxDataBuffer[7] != 0x01)
+	if (dmaTxDataBuffer[7] != 0x01)
 		{
 			/* Error - Flash could not be accessed */
 			printf("Error2 %02X %02X %02X", dmaRxDataBuffer[6], dmaRxDataBuffer[7], dmaRxDataBuffer[8]);
@@ -178,7 +176,7 @@ void SdcMyFirstCmd(int argc, char *argv[]) {
 	rx[2] = 0x45;
 
 
-	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 3, &job_status, 0))
+	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status, 0))
 	{
 		printf("Error1");
 	}

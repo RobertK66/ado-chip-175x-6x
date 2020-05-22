@@ -65,7 +65,8 @@ void ssp01_init(void)
 	ssp_jobs[0].ssp_initialized = false;
 	ssp_jobs[1].ssp_initialized = false;
 
-	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SSP0);
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SSP0);				//
+	Chip_Clock_SetPCLKDiv(SYSCTL_PCLK_SSP0, SYSCTL_CLKDIV_1);		//
 	//Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_SSP1);
 
 	ssp_init(LPC_SSP0, SSP_BUS0, SSP0_IRQn, 0);
@@ -77,9 +78,16 @@ void ssp01_init(void)
 // Common init routine used for both SSP buses
 void ssp_init(LPC_SSP_T *device, uint8_t busNr, IRQn_Type irq, uint32_t irqPrio ) {
 
+	uint32_t cl = Chip_Clock_GetMainClockRate();
+
+
 	Chip_SSP_Set_Mode(device, SSP_MODE_MASTER);
 	Chip_SSP_SetFormat(device, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);
-	Chip_SSP_SetBitRate(device, 1000000);
+//	Chip_SSP_SetClockRate(device, 4, 2);				// SSPClk: 9.6Mhz   	( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (4+1) )
+	Chip_SSP_SetClockRate(device, 3, 2);				// SSPClk: 12Mhz		( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (3+1) )
+//	Chip_SSP_SetClockRate(device, 2, 2);				// SSPClk: 16Mhz		( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (2+1) )
+//	Chip_SSP_SetClockRate(device, 1, 2);				// SSPClk: 24Mhz		( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (1+1) )
+//	Chip_SSP_SetClockRate(device, 0, 2);				// SSPClk: 48Mhz			- not working with my external wired socket !? ...
 
 	Chip_SSP_DisableLoopBack(device);
 	Chip_SSP_Enable(device);
