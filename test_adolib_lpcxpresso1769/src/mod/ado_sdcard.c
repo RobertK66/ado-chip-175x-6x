@@ -100,7 +100,7 @@ void SdcWithDMACmd(int argc, char *argv[]) {
 
 	for (int i = 0; i<bytesToProcess; i++) {
 		dmaTxDataBuffer[i] = 0xFF;
-		dmaRxDataBuffer[i] = 0;
+		//dmaRxDataBuffer[i] = 0;
 	}
 	dmaTxDataBuffer[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
 	dmaTxDataBuffer[1] = 0;
@@ -130,7 +130,7 @@ void SdcWithDMACmd(int argc, char *argv[]) {
 	if (dmaTxDataBuffer[7] != 0x01)
 		{
 			/* Error - Flash could not be accessed */
-			printf("Error2 %02X %02X %02X", dmaRxDataBuffer[6], dmaRxDataBuffer[7], dmaRxDataBuffer[8]);
+			printf("Error2 %02X %02X %02X", dmaTxDataBuffer[6], dmaTxDataBuffer[7], dmaTxDataBuffer[8]);
 		} else {
 			printf("DMA Reset ok!");
 		}
