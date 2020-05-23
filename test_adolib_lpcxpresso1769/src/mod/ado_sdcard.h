@@ -8,8 +8,8 @@
 #ifndef MOD_ADO_SDCARD_H_
 #define MOD_ADO_SDCARD_H_
 
-#include "../mod/ado_ssp.h"
+#include "ado_sspdma.h"
 
-void SdcInit(ssp_busnr_t bus);
+void SdcInit(ado_sspid_t sspId);
 
 #endif /* MOD_ADO_SDCARD_H_ */

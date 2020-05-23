@@ -42,11 +42,11 @@ void SdcWithDMACmd(int argc, char *argv[]);
 void SdcWithDMACmd2(int argc, char *argv[]);
 
 
-static ssp_busnr_t sdcBusNr = -1;
+static ado_sspid_t sdcBusNr = -1;
 //volatile bool card_busy;
 
 
-void SdcInit(ssp_busnr_t bus) {
+void SdcInit(ado_sspid_t bus) {
 	sdcBusNr = bus;
 
 	Chip_GPDMA_Init(LPC_GPDMA);
@@ -59,61 +59,20 @@ void SdcInit(ssp_busnr_t bus) {
 
 }
 
-//
-// Be careful here! This Callbacks are called from IRQ !!!
-// Do not do any complicated logic here!!!
-// Transfer all things to be done to next mainloop....
-//void SdcChipSelect(bool select) {
-//	//Chip_GPIO_SetPinState(LPC_GPIO, SDC_CS_PORT, SDC_CS_PIN, !select);
-////	if (!select) {
-////		card_busy = false;
-////	}
-////	return true;
-//}
-//
-
-
-volatile uint8_t dmaStat = 0x00;
-//uint8_t dmaTxDataBuffer[512];
-//uint8_t dmaRxDataBuffer[512];
-
-
-
-void DMA_IRQHandler(void) {
-	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
-	IntStatus s;
-	//uint32_t is = LPC_GPDMA->INTSTAT;
-	s = Chip_GPDMA_IntGetStatus(LPC_GPDMA, GPDMA_STAT_INTTC , 1);
-	if (s != RESET) {
-		Chip_GPDMA_ClearIntPending(LPC_GPDMA, GPDMA_STATCLR_INTTC , 1);
-		dmaStat &= ~0x01;
+void DMACmd2Finished(ado_sspstatus_t status, uint8_t *rxData, uint16_t cnt) {
+	if (rxData[1] != 0x01) {
+		/* Error - Flash could not be accessed */
+		printf("Error Sc %02X %02X %02X", rxData[0], rxData[1], rxData[2]);
+	} else {
+		printf("Scattered DMA Reset ok!");
 	}
-	s = Chip_GPDMA_IntGetStatus(LPC_GPDMA, GPDMA_STAT_INTTC , 2);
-	if (s != RESET) {
-		Chip_GPDMA_ClearIntPending(LPC_GPDMA, GPDMA_STATCLR_INTTC , 2);
-		dmaStat &= ~0x02;
-	}
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 }
 
-
-
 void SdcWithDMACmd2(int argc, char *argv[]) {
-	uint32_t helper = 0;
 	uint8_t dataCntToSend = 6;
 	uint8_t dataCntToReceive = 64;
 	uint8_t txData[6];
 	uint8_t rxData[64];
-	uint8_t rxDummy;
-	uint8_t txDummy = 0xFF;
-	DMA_TransferDescriptor_t llirx1;
-	DMA_TransferDescriptor_t llirx2;
-	DMA_TransferDescriptor_t llitx1;
-	DMA_TransferDescriptor_t llitx2;
-
-	for (int i = 0; i<dataCntToSend; i++) {
-		rxData[i] = 0x00;
-	}
 
 	txData[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
 	txData[1] = 0;
@@ -122,58 +81,67 @@ void SdcWithDMACmd2(int argc, char *argv[]) {
 	txData[4] = 0;
 	txData[5] = 0x95;
 
-	dmaStat = 0x03;
-	Chip_SSP_DMA_Enable(LPC_SSP0);
+	ADO_SSP_AddJobScattered(sspId, txData, rxData, bytes_to_send, bytes_to_read, finished)sspId, txData, rxData, bytes_to_send, bytes_to_read, finished)sdcBusNr, txData, rxData, dataCntToSend, dataCntToReceive, DMACmd2Finished);
 
-	// Receiver Channel - Setup as Scatter Transfer First Block has a dummy destination without incrementing the pointer, second block is real RX.
-	// first 6 byte are TX only we write all Rx to Dummy Byte
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llirx1, GPDMA_CONN_SSP0_Rx, (uint32_t)&rxDummy,dataCntToSend,GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, &llirx2);
-	// Then the real receive starts to write in rxData
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llirx2, GPDMA_CONN_SSP0_Rx, (uint32_t)rxData,dataCntToReceive,GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, 0);
-
-	// Some corrections needed here !!!!!
-	llirx1.ctrl &= (~GPDMA_DMACCxControl_DI);	// First block should not increment destination (All Rx write to dummy byte)!
-	llirx1.src = GPDMA_CONN_SSP0_Rx;			// Source of First Block must be readjusted (from real Peripherial Address back to Periphery-ID)
-												// in order to make the SGTransfer prepare work!
-	Chip_GPDMA_SGTransfer(LPC_GPDMA, 1, &llirx1, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
-
-	// Transmit Channel
-	//Chip_GPDMA_Transfer(LPC_GPDMA, 2, (uint32_t)txData, GPDMA_CONN_SSP0_Tx, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, bytesToProcess);
-	// first 6 byte are the real TX
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llitx1, (uint32_t)txData, GPDMA_CONN_SSP0_Tx , dataCntToSend ,GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, &llitx2);
-	// Then the tx channel only sends dummy 0xFF bytes in order to receive all rx bytes
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llitx2, (uint32_t)&txDummy, GPDMA_CONN_SSP0_Tx, dataCntToReceive, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, 0);
-
-	// Some corrections needed here !!!!!
-	llitx2.ctrl &= (~GPDMA_DMACCxControl_SI);	// 2nd block should not increment source (All Tx write from dummy byte)!
-	llitx1.dst = GPDMA_CONN_SSP0_Tx;			// Destination of First Block must be readjusted (from real Peripherial Address back to Periphery-ID)
-												// in order to make the SGTransfer prepare work!
-	Chip_GPDMA_SGTransfer(LPC_GPDMA, 2, &llitx1, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
-
-	while ((dmaStat != 0) && (helper < 1000000))
-		{
-			/* Wait for both dma channels to finish */
-			helper++;
-		}
-
-	if (helper >= 1000000) {
-	    	printf("Error DMA not finished.");
-	}
-
-	if (rxData[1] != 0x01)
-		{
-			/* Error - Flash could not be accessed */
-			printf("Error Sc %02X %02X %02X", rxData[0], rxData[1], rxData[2]);
-		} else {
-			printf("Scattered DMA Reset ok!");
-		}
-
-	Chip_SSP_DMA_Disable(LPC_SSP0);
+//	dmaStat = 0x03;
+//	Chip_SSP_DMA_Enable(LPC_SSP0);
+//
+//	// Receiver Channel - Setup as Scatter Transfer First Block has a dummy destination without incrementing the pointer, second block is real RX.
+//	// first 6 byte are TX only we write all Rx to Dummy Byte
+//	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llirx1, GPDMA_CONN_SSP0_Rx, (uint32_t)&rxDummy,dataCntToSend,GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, &llirx2);
+//	// Then the real receive starts to write in rxData
+//	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llirx2, GPDMA_CONN_SSP0_Rx, (uint32_t)rxData,dataCntToReceive,GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, 0);
+//
+//	// Some corrections needed here !!!!!
+//	llirx1.ctrl &= (~GPDMA_DMACCxControl_DI);	// First block should not increment destination (All Rx write to dummy byte)!
+//	llirx1.src = GPDMA_CONN_SSP0_Rx;			// Source of First Block must be readjusted (from real Peripherial Address back to Periphery-ID)
+//												// in order to make the SGTransfer prepare work!
+//	Chip_GPDMA_SGTransfer(LPC_GPDMA, 1, &llirx1, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
+//
+//	// Transmit Channel
+//	//Chip_GPDMA_Transfer(LPC_GPDMA, 2, (uint32_t)txData, GPDMA_CONN_SSP0_Tx, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, bytesToProcess);
+//	// first 6 byte are the real TX
+//	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llitx1, (uint32_t)txData, GPDMA_CONN_SSP0_Tx , dataCntToSend ,GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, &llitx2);
+//	// Then the tx channel only sends dummy 0xFF bytes in order to receive all rx bytes
+//	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, &llitx2, (uint32_t)&txDummy, GPDMA_CONN_SSP0_Tx, dataCntToReceive, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, 0);
+//
+//	// Some corrections needed here !!!!!
+//	llitx2.ctrl &= (~GPDMA_DMACCxControl_SI);	// 2nd block should not increment source (All Tx write from dummy byte)!
+//	llitx1.dst = GPDMA_CONN_SSP0_Tx;			// Destination of First Block must be readjusted (from real Peripherial Address back to Periphery-ID)
+//												// in order to make the SGTransfer prepare work!
+//	Chip_GPDMA_SGTransfer(LPC_GPDMA, 2, &llitx1, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
+//
+//	while ((dmaStat != 0) && (helper < 1000000))
+//		{
+//			/* Wait for both dma channels to finish */
+//			helper++;
+//		}
+//
+//	if (helper >= 1000000) {
+//	    	printf("Error DMA not finished.");
+//	}
+//
+//	if (rxData[1] != 0x01)
+//		{
+//			/* Error - Flash could not be accessed */
+//			printf("Error Sc %02X %02X %02X", rxData[0], rxData[1], rxData[2]);
+//		} else {
+//			printf("Scattered DMA Reset ok!");
+//		}
+//
+//	Chip_SSP_DMA_Disable(LPC_SSP0);
 }
 
+void DMACmdFinished(ado_sspstatus_t status, uint8_t *rxData, uint16_t cnt) {
+	if (rxData[1] != 0x01) {
+		/* Error - Flash could not be accessed */
+		printf("Error %02X %02X %02X", rxData[0], rxData[1], rxData[2]);
+	} else {
+		printf("DMA Reset ok!");
+	}
+}
 
 void SdcWithDMACmd(int argc, char *argv[]) {
-	uint32_t helper = 0;
 	uint8_t dataCntToSend = 6;
 	uint8_t dataCntToReceive = 64;
 	uint8_t bytesToProcess = dataCntToSend + dataCntToReceive;
@@ -189,106 +157,108 @@ void SdcWithDMACmd(int argc, char *argv[]) {
 	dmaTxDataBuffer[4] = 0;
 	dmaTxDataBuffer[5] = 0x95;
 
-	dmaStat = 0x03;
 
-	Chip_SSP_DMA_Enable(LPC_SSP0);
-	// Receiver Channel - As the receiver channel is always behind the transmitter, we can use the same buffer here (original tx data gets overwritten by RX!)
-	Chip_GPDMA_Transfer(LPC_GPDMA, 2, GPDMA_CONN_SSP0_Rx, (uint32_t)dmaTxDataBuffer, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, bytesToProcess);
-	// Transmiter Channel
-	Chip_GPDMA_Transfer(LPC_GPDMA, 1, (uint32_t)dmaTxDataBuffer, GPDMA_CONN_SSP0_Tx, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, bytesToProcess);
+	//ADO_SSP_AddJobSharedBuffer(sdcBusNr, dmaTxDataBuffer, dataCntToSend, dataCntToReceive, DMACmdFinished);
 
-	while ((dmaStat != 0) && (helper < 1000000))
-		{
-			/* Wait for both dma channels to finish */
-			helper++;
-		}
-
-	if (helper >= 1000000) {
-	    	printf("Error DMA not finished.");
-	}
-
-	if (dmaTxDataBuffer[7] != 0x01)
-		{
-			/* Error - Flash could not be accessed */
-			printf("Error2 %02X %02X %02X", dmaTxDataBuffer[6], dmaTxDataBuffer[7], dmaTxDataBuffer[8]);
-		} else {
-			printf("DMA Reset ok!");
-		}
-
-	Chip_SSP_DMA_Disable(LPC_SSP0);
+//
+//	Chip_SSP_DMA_Enable(LPC_SSP0);
+//	// Receiver Channel - As the receiver channel is always behind the transmitter, we can use the same buffer here (original tx data gets overwritten by RX!)
+//	Chip_GPDMA_Transfer(LPC_GPDMA, 2, GPDMA_CONN_SSP0_Rx, (uint32_t)dmaTxDataBuffer, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, bytesToProcess);
+//	// Transmiter Channel
+//	Chip_GPDMA_Transfer(LPC_GPDMA, 1, (uint32_t)dmaTxDataBuffer, GPDMA_CONN_SSP0_Tx, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, bytesToProcess);
+//
+//	while ((dmaStat != 0) && (helper < 1000000))
+//		{
+//			/* Wait for both dma channels to finish */
+//			helper++;
+//		}
+//
+//	if (helper >= 1000000) {
+//	    	printf("Error DMA not finished.");
+//	}
+//
+//	if (dmaTxDataBuffer[7] != 0x01)
+//		{
+//			/* Error - Flash could not be accessed */
+//			printf("Error2 %02X %02X %02X", dmaTxDataBuffer[6], dmaTxDataBuffer[7], dmaTxDataBuffer[8]);
+//		} else {
+//			printf("DMA Reset ok!");
+//		}
+//
+//	Chip_SSP_DMA_Disable(LPC_SSP0);
 }
 
 
 void SdcMyFirstCmd(int argc, char *argv[]) {
 	printf("SDCard on Bus %d\n",sdcBusNr);
 	//DumpSspJobs(sdcBusNr);
-
-	uint8_t tx[6];
-	uint8_t rx[512];
-	uint8_t *job_status = NULL;
-	uint8_t *job_status2 = NULL;
-
-	uint32_t helper;
-	uint32_t helper2;
-
-
-	if((argc > 0) && strcmp(argv[0],"po") == 0) {
-		/* prepare (after power up with 80 clock without CS!!!! */
-		for (int i = 0; i<10; i++){
-			LPC_SSP0->DR = 0xFF;
-		}
-		printf("Power On.\n");
-		return;
-	}
-
-
-	/* Read flash ID register */
-	tx[0] = 0x40 | GO_IDLE_STATE;
-	tx[1] = 0;
-	tx[2] = 0;
-	tx[3] = 0;
-	tx[4] = 0;
-	tx[5] = 0x95;		// dummy CRC"!?
-
-	rx[0] = 0x33;
-	rx[1] = 0x44;
-	rx[2] = 0x45;
-
-
-	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status, 0))
-	{
-		printf("Error1");
-	}
-//	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status2, 0))
-//	{
-//		printf("Error1a");
+//
+//	uint8_t tx[6];
+//	uint8_t rx[512];
+//	uint8_t *job_status = NULL;
+//	uint8_t *job_status2 = NULL;
+//
+//	uint32_t helper;
+//	uint32_t helper2;
+//
+//
+//	if((argc > 0) && strcmp(argv[0],"po") == 0) {
+//		/* prepare (after power up with 80 clock without CS!!!! */
+//		for (int i = 0; i<10; i++){
+//			LPC_SSP0->DR = 0xFF;
+//		}
+//		printf("Power On.\n");
+//		return;
 //	}
-
-	helper = 0;
-	while ((*job_status != SSP_JOB_STATE_DONE) && (helper < 1000000))
-	{
-		/* Wait for job to finish */
-		helper++;
-	}
-
-	helper2 = 0;
-	while ((*job_status2 != SSP_JOB_STATE_DONE) && (helper2 < 1000000))
-	{
-		/* Wait for job to finish */
-		helper2++;
-	}
-
-    if (helper >= 1000000) {
-    	printf("Error3 Job A not finished.");
-    }
-    if (helper2 >= 1000000) {
-     	printf("Error3 Job B not finished.");
-     }
-	if (rx[1] != 0x01)
-	{
-		/* Error - Flash could not be accessed */
-		printf("Error2 %02X %02X %02X", rx[0], rx[1], rx[2]);
-	} else {
-		printf("Reset ok!");
-	}
+//
+//
+//	/* Read flash ID register */
+//	tx[0] = 0x40 | GO_IDLE_STATE;
+//	tx[1] = 0;
+//	tx[2] = 0;
+//	tx[3] = 0;
+//	tx[4] = 0;
+//	tx[5] = 0x95;		// dummy CRC"!?
+//
+//	rx[0] = 0x33;
+//	rx[1] = 0x44;
+//	rx[2] = 0x45;
+//
+//
+//	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 64, &job_status, 0))
+//	{
+//		printf("Error1");
+//	}
+////	if (ssp_add_job2(sdcBusNr , tx, 6, rx, 128, &job_status2, 0))
+////	{
+////		printf("Error1a");
+////	}
+//
+//	helper = 0;
+//	while ((*job_status != SSP_JOB_STATE_DONE) && (helper < 1000000))
+//	{
+//		/* Wait for job to finish */
+//		helper++;
+//	}
+//
+//	helper2 = 0;
+//	while ((*job_status2 != SSP_JOB_STATE_DONE) && (helper2 < 1000000))
+//	{
+//		/* Wait for job to finish */
+//		helper2++;
+//	}
+//
+//    if (helper >= 1000000) {
+//    	printf("Error3 Job A not finished.");
+//    }
+//    if (helper2 >= 1000000) {
+//     	printf("Error3 Job B not finished.");
+//     }
+//	if (rx[1] != 0x01)
+//	{
+//		/* Error - Flash could not be accessed */
+//		printf("Error2 %02X %02X %02X", rx[0], rx[1], rx[2]);
+//	} else {
+//		printf("Reset ok!");
+//	}
 }
