@@ -78,9 +78,6 @@ void ssp01_init(void)
 // Common init routine used for both SSP buses
 void ssp_init(LPC_SSP_T *device, uint8_t busNr, IRQn_Type irq, uint32_t irqPrio ) {
 
-	uint32_t cl = Chip_Clock_GetMainClockRate();
-
-
 	Chip_SSP_Set_Mode(device, SSP_MODE_MASTER);
 	Chip_SSP_SetFormat(device, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);
 //	Chip_SSP_SetClockRate(device, 4, 2);				// SSPClk: 9.6Mhz   	( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (4+1) )
@@ -102,7 +99,7 @@ void ssp_init(LPC_SSP_T *device, uint8_t busNr, IRQn_Type irq, uint32_t irqPrio 
 	ssp_jobs[busNr].current_job = 0;
 	ssp_jobs[busNr].jobs_pending = 0;
 
-	//NVIC_SetPriority(irq, irqPrio);
+	NVIC_SetPriority(irq, irqPrio);
 	NVIC_EnableIRQ (irq);
 
 	ssp_jobs[busNr].ssp_job_error_counter = 0;
