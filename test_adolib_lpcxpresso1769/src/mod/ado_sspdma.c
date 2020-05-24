@@ -6,12 +6,11 @@
  *
  *  Copied over from pegasus flight software on 2019-12-14
  */
+#include "ado_sspdma.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <chip.h>
-
-#include "ado_sspdma.h"
 
 // Inline Block to clear SSP Rx Buffer.
 #define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
@@ -37,17 +36,6 @@ const uint8_t ADO_SSP_TxDmaChannel[] = {
 	ADO_SSP_TXDMACHANNEL1
 };
 
-//const uint8_t ADO_SSP_IdForChannel[] = {
-//	ADO_SSP0,					// DMA Channel 0 -> SSPx		// TODO: configure in accordance with channel defines!!!!
-//	ADO_SSP0,					// DMA Channel 1 -> SSPx
-//	ADO_SSP0,					// DMA Channel 2 -> SSPx
-//	ADO_SSP0,					// DMA Channel 3 -> SSPx
-//	ADO_SSP0,					// DMA Channel 4 -> SSPx
-//	ADO_SSP0,					// DMA Channel 5 -> SSPx
-//	ADO_SSP0,					// DMA Channel 6 -> SSPx
-//	ADO_SSP0					// DMA Channel 7 -> SSPx
-//};
-
 const uint32_t ADO_SSP_GPDMA_CONN_RX[] = {
 	GPDMA_CONN_SSP0_Rx,
 	GPDMA_CONN_SSP1_Rx
@@ -64,7 +52,6 @@ typedef struct ado_sspjob_s
 	uint8_t *rxData;
 	uint16_t txSize;
 	uint16_t rxSize;
-	ado_sspstatus_t status;
 	uint32_t context;												// Any data can be stored here by client. Its fed back to the callbacks when job processes.
 	AdoSSP_ActivateHandler(ADO_SSP_JobActivated_IRQCallback);	// Use this for activating chip Select, if SSP SSL not used.
 	AdoSSP_FinishedHandler(ADO_SSP_JobFinished_IRQCallback);		// Do not process received data with this callback. Only signal data available to your main routines.
@@ -82,7 +69,7 @@ typedef struct ado_sspjobs_s
 } ado_sspjobs_t;
 
 // local/module variables
-ado_sspjobs_t 	ado_sspjobs[2];		// One structure per SSP Master
+ado_sspjobs_t 	ado_sspjobs[2];		// One structure per SSP Master [0]:SSP0, [1]:SSP1
 uint8_t 		rxDummy;
 uint8_t 		txDummy = 0xFF;
 
@@ -94,12 +81,11 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
 	
 	Chip_Clock_EnablePeriphClock(ADO_SSP_SysCtlClock[sspId]);		
-	Chip_Clock_SetPCLKDiv(ADO_SSP_SysCtlClock[sspId], SYSCTL_CLKDIV_1);						// No additional prescaler used.
-	Chip_SSP_Set_Mode(pSSP, SSP_MODE_MASTER);												// SSP is Master
-	Chip_SSP_SetFormat(pSSP, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);		// SPI Mode with 8 bit and 'mode1' SPI: this makes CS pulses per Byte (on native SSP SSL Port).
-																							// 		( SSP_CLOCK_CPHA0_CPOL0 'mode3' would keep SSL active for a whole job transfer. )
-	
-	Chip_SSP_SetBitRate(pSSP, bitRate);				// This calculates settings with near fit. Actual bitrate is calculated as ....
+	Chip_Clock_SetPCLKDiv(ADO_SSP_SysCtlClock[sspId], SYSCTL_CLKDIV_1);					// No additional prescaler used.
+	Chip_SSP_Set_Mode(pSSP, SSP_MODE_MASTER);											// SSP is Master
+	Chip_SSP_SetFormat(pSSP, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);	// SPI Mode with 8 bit and 'mode1' SPI: this makes CS pulses per Byte (on native SSP SSL Port).
+																						// 		( SSP_CLOCK_CPHA0_CPOL0 'mode3' would keep SSL active for a whole job transfer. )
+	Chip_SSP_SetBitRate(pSSP, bitRate);					// This calculates settings with a near fit. Actual bitrate is calculated as ....
 	
 //	Chip_SSP_SetClockRate(pSSP, 5, 2);
 //	Chip_SSP_SetClockRate(pSSP, 4, 2);				// SSPClk: 9.6Mhz   	( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (4+1) )
@@ -111,6 +97,7 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 	Chip_SSP_DisableLoopBack(pSSP);
 	Chip_SSP_Enable(pSSP);
 	Chip_SSP_Int_Disable(pSSP, SSP_INT_BITMASK);
+	Chip_SSP_DMA_Enable(pSSP);
 
 	ADO_SSP_DUMP_RX(pSSP);
 
@@ -121,43 +108,96 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 	ado_sspjobs[sspId].rxDmaChannel = ADO_SSP_RxDmaChannel[sspId];
 	ado_sspjobs[sspId].txDmaChannel = ADO_SSP_TxDmaChannel[sspId];
 
+	Chip_GPDMA_Init(LPC_GPDMA);
+	NVIC_EnableIRQ (DMA_IRQn);
 }
 
 
-void ADO_SSP_AddJobScattered(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_t *rxData, uint16_t bytes_to_send, uint16_t bytes_to_read, AdoSSP_FinishedHandler(finish), AdoSSP_ActivateHandler(activate)){
-
-	// TODO: MAke this a 'thread/IRQ Save' Operation.....
+void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_t *rxData, uint16_t bytes_to_send, uint16_t bytes_to_read, AdoSSP_FinishedHandler(finish), AdoSSP_ActivateHandler(activate)){
+	bool startIt = false;
 	ado_sspjobs_t *jobs = &ado_sspjobs[sspId];
 
 	if (jobs->jobs_pending >= ADO_SSP_MAXJOBS) {
 		/* Maximum amount of jobs stored, job can't be added! */
 		jobs->ssp_job_error_counter++;
-		finish(context, SSP_JOB_BUFFER_OVERFLOW, 0, 0);		// Use the IRQ callback to Signal this error. Maybe a direct return value would be better here !?
+		if (finish != 0) {
+			finish(context, SSP_JOB_BUFFER_OVERFLOW, 0, 0);		// Use the IRQ callback to Signal this error. Maybe a direct return value would be better here !?
+		}
 		return;
 	}
 
+	// Be sure the following operations will not be mixed up with an DMA TC-IRQ ending and changing the current/pending job idx.
+	// *****
+	NVIC_DisableIRQ (DMA_IRQn);
+
 	uint8_t newJobIdx = (jobs->current_job + jobs->jobs_pending) % ADO_SSP_MAXJOBS;
 	ado_sspjob_t *newJob = &(jobs->job[newJobIdx]);
-
 	newJob->txData = txData;
 	newJob->rxData = rxData;
 	newJob->txSize = bytes_to_send;
 	newJob->rxSize = bytes_to_read;
+	newJob->context = context;
 	newJob->ADO_SSP_JobFinished_IRQCallback = finish;
 	newJob->ADO_SSP_JobActivated_IRQCallback = activate;
 
 	if (jobs->jobs_pending == 0) {
-		/* if no jobs pending, start the Communication.*/
+		startIt = true;
+	}
+	jobs->jobs_pending++;
+
+	NVIC_EnableIRQ (DMA_IRQn);
+	// *****
+	// Now we allow DMA IRQs to be executed from here on.
+
+	if (startIt) {
+		// If this was the first job entered into an empty queue, we start the communication now.
+		// If a DMA was running before this Disable/Enable IRQ block,
+		// we should never get here because jobs_pending must have been already > 0 then!
 		ADO_SSP_InitiateDMA(sspId, newJob);
 	}
-
-	jobs->jobs_pending++;
 }
 
 
+void DMA_IRQHandler(void) {
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
+	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
+	if ( tcs & (1UL<<ADO_SSP_RXDMACHANNEL0) ) {
+		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
+		// This was SSP0 finishing its RX Channel.
+		ado_sspjob_t *job = &ado_sspjobs[0].job[ado_sspjobs[0].current_job];
+		job->ADO_SSP_JobFinished_IRQCallback(job->context, SSP_JOB_STATE_DONE, job->rxData, job->rxSize);
+
+		ado_sspjobs[0].jobs_pending--;
+		if (ado_sspjobs[0].jobs_pending > 0) {
+			// Continue with nextJob
+			ado_sspjobs[0].current_job++;
+			if (ado_sspjobs[0].current_job == ADO_SSP_MAXJOBS) {
+				ado_sspjobs[0].current_job = 0;
+			}
+			ADO_SSP_InitiateDMA(ADO_SSP0,&ado_sspjobs[0].job[ado_sspjobs[0].current_job]);
+		}
+	}
+	if ( tcs & (1<<ADO_SSP_RXDMACHANNEL1) ) {
+		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL1);
+		// This was SSP1 finishing its RX Channel.
+		ado_sspjob_t *job = &ado_sspjobs[1].job[ado_sspjobs[1].current_job];
+		job->ADO_SSP_JobFinished_IRQCallback(job->context, SSP_JOB_STATE_DONE, job->rxData, job->rxSize);
+
+		ado_sspjobs[1].jobs_pending--;
+		if (ado_sspjobs[1].jobs_pending > 0) {
+			// Continue with nextJob
+			ado_sspjobs[1].current_job++;
+			if (ado_sspjobs[1].current_job == ADO_SSP_MAXJOBS) {
+				ado_sspjobs[1].current_job = 0;
+			}
+			ADO_SSP_InitiateDMA(ADO_SSP1,&ado_sspjobs[1].job[ado_sspjobs[1].current_job]);
+		}
+	}
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+}
+
 void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
-	Chip_SSP_DMA_Enable(pSSP);											// TODO: ???
 	ADO_SSP_DUMP_RX(pSSP);
 	DMA_TransferDescriptor_t *pDmaTd = ado_sspjobs[sspId].dmaTd;
 
@@ -190,23 +230,4 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 														// in order to make the SGTransfer prepare work!
 	(pDmaTd+3)->ctrl &= (~GPDMA_DMACCxControl_I);		// We do mask the TC IRQ of the Tx DMA. We only are interested in the Rx-IRQ
 	Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+2), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
-}
-
-
-void DMA_IRQHandler(void) {
-	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
-	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
-	if ( tcs & (1UL<<ADO_SSP_RXDMACHANNEL0) ) {
-		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
-		// This was SSP0 finishing its RX Channel.
-		ado_sspjob_t *job = &ado_sspjobs[0].job[ado_sspjobs[0].current_job];
-		job->ADO_SSP_JobFinished_IRQCallback(job->context, SSP_JOB_STATE_DONE, job->rxData, job->rxSize);
-		ado_sspjobs[0].jobs_pending--;
-	}
-	if ( tcs & (1<<ADO_SSP_RXDMACHANNEL1) ) {
-		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL1);
-		// This was SSP1 finishing its RX Channel.
-
-	}
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 }
