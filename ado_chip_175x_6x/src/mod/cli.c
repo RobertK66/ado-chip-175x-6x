@@ -102,6 +102,7 @@ void CliPutChar(char ch) {
 		}
 	} else {
 		// UART Mode
+		Chip_UART_IntDisable(cliUart, UART_IER_THREINT);
 		if (cliTxInProgress) {
 			// We just put the char into buffer. Tx is already running and will be re-triggered by tx interrupt.
 			if (RingBuffer_Insert(&cliTxRingbuffer, &ch) == 0) {
@@ -109,6 +110,7 @@ void CliPutChar(char ch) {
 				// ... TODO ... log event here !?
 				ignoredTxChars++;
 			}
+			Chip_UART_IntEnable(cliUart, UART_IER_THREINT);
 		} else {
 			if (!RingBuffer_IsEmpty(&cliTxRingbuffer)) {
 				// Thats strange. somebody left the buffer 'unsent' -> lets reset
