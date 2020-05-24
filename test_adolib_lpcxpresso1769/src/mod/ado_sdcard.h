@@ -11,5 +11,8 @@
 #include "ado_sspdma.h"
 
 void SdcInit(ado_sspid_t sspId);
+void SdcMain();
+
+
 
 #endif /* MOD_ADO_SDCARD_H_ */
