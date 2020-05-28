@@ -277,7 +277,7 @@ void trb_performance_ptrs(test_result_t *res) {
 		testFailed(res, "Ringbuffer using ptr (single pushPop) is to slow!");
 		return;
 	}
-	if (time1us > 8800) {
+	if (time1us > 8900) {
 		testFailed(res, "Ringbuffer using ptr (multi pushPop) is to slow!");
 		return;
 	}

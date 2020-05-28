@@ -52,9 +52,9 @@ typedef struct ado_sspjob_s
 	uint8_t *rxData;
 	uint16_t txSize;
 	uint16_t rxSize;
-	uint32_t context;												// Any data can be stored here by client. Its fed back to the callbacks when job processes.
+	uint32_t context;											// Any data can be stored here by client. Its fed back to the callbacks when job processes.
 	AdoSSP_ActivateHandler(ADO_SSP_JobActivated_IRQCallback);	// Use this for activating chip Select, if SSP SSL not used.
-	AdoSSP_FinishedHandler(ADO_SSP_JobFinished_IRQCallback);		// Do not process received data with this callback. Only signal data available to your main routines.
+	AdoSSP_FinishedHandler(ADO_SSP_JobFinished_IRQCallback);	// Do not process received data with this callback. Only signal data available to your main routines.
 } ado_sspjob_t;
 
 typedef struct ado_sspjobs_s
