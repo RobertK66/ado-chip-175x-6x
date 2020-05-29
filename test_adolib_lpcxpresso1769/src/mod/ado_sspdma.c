@@ -12,6 +12,9 @@
 #include <string.h>
 #include <chip.h>
 
+//#define ADO_SSPDMA_BITFLIPSAFE  // Use this define to reconfigure constant part of DMA-Ctrl structures with every DMA Request.
+								// This costs ca. 3,6% performance with massive multi-job read/writes.
+
 // Inline Block to clear SSP Rx Buffer.
 #define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
 
@@ -108,6 +111,33 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 	ado_sspjobs[sspId].rxDmaChannel = ADO_SSP_RxDmaChannel[sspId];
 	ado_sspjobs[sspId].txDmaChannel = ADO_SSP_TxDmaChannel[sspId];
 
+	// Initialize the DMA Ctrl structures with empty src/dest addresses.
+	// Receiver Channel - Setup as Scatter Transfer with 2 blocks.
+	// First bytes are TX only. We write all Rx to a dummy Byte.
+	ado_sspjobs[sspId].dmaTd[0].src = 1;
+	ado_sspjobs[sspId].dmaTd[0].dst = (uint32_t)&rxDummy;
+	ado_sspjobs[sspId].dmaTd[0].lli = (uint32_t)(&ado_sspjobs[sspId].dmaTd[1]);
+	ado_sspjobs[sspId].dmaTd[0].ctrl = 0x00009006;
+
+	// Then the real receive starts to write into rxData
+	ado_sspjobs[sspId].dmaTd[1].src = (uint32_t)&(pSSP->DR);
+	ado_sspjobs[sspId].dmaTd[1].dst = 0;					// This will be filled by job entry later.
+	ado_sspjobs[sspId].dmaTd[1].lli = 0;
+	ado_sspjobs[sspId].dmaTd[1].ctrl = 0x8800900A;
+
+	// Transmit Channel - 2 Blocks
+	// first n byte are the real TX
+	ado_sspjobs[sspId].dmaTd[2].src = 0;					// This will be filled by job entry later.
+	ado_sspjobs[sspId].dmaTd[2].dst = 0;
+	ado_sspjobs[sspId].dmaTd[2].lli = (uint32_t)(&ado_sspjobs[sspId].dmaTd[3]);
+	ado_sspjobs[sspId].dmaTd[2].ctrl = 0x04009006;
+
+	// Then the tx channel only sends dummy 0xFF bytes in order to receive all rx bytes
+	ado_sspjobs[sspId].dmaTd[3].src = (uint32_t)&txDummy;
+	ado_sspjobs[sspId].dmaTd[3].dst = (uint32_t)&(pSSP->DR);
+	ado_sspjobs[sspId].dmaTd[3].lli = 0;
+	ado_sspjobs[sspId].dmaTd[3].ctrl = 0x0000900A;
+
 	Chip_GPDMA_Init(LPC_GPDMA);
 	NVIC_EnableIRQ (DMA_IRQn);
 }
@@ -153,6 +183,7 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_
 		// If this was the first job entered into an empty queue, we start the communication now.
 		// If a DMA was running before this Disable/Enable IRQ block,
 		// we should never get here because jobs_pending must have been already > 0 then!
+		ADO_SSP_DUMP_RX(ADO_SSP_RegBase[sspId]);
 		ADO_SSP_InitiateDMA(sspId, newJob);
 	}
 }
@@ -196,9 +227,8 @@ void DMA_IRQHandler(void) {
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 }
 
+// __attribute__((always_inline))		// This gives another 0,5% Performance improvement but it needs 150..200 bytes more prog memory!
 void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
-	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
-	ADO_SSP_DUMP_RX(pSSP);
 	DMA_TransferDescriptor_t *pDmaTd = ado_sspjobs[sspId].dmaTd;
 
 	if (newJob->ADO_SSP_JobActivated_IRQCallback != 0) {
@@ -206,28 +236,29 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);
 	}
 
-	// Receiver Channel - Setup as Scatter Transfer with 2 blocks.
-	// First bytes are TX only. We write all Rx to a dummy Byte.
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, (pDmaTd+0), ADO_SSP_GPDMA_CONN_RX[sspId], (uint32_t)&rxDummy, newJob->txSize, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, (pDmaTd+1));
-	// Then the real receive starts to write into rxData
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, (pDmaTd+1), ADO_SSP_GPDMA_CONN_RX[sspId], (uint32_t)newJob->rxData, newJob->rxSize, GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA, 0);
+	// Adjust the rx/tx addresses in prepared dma control structures.
+	(pDmaTd+1)->dst = (uint32_t)newJob->rxData;
+	(pDmaTd+2)->src = (uint32_t)newJob->txData;
 
-	// Some corrections needed here !!!!!
-	(pDmaTd+0)->ctrl &= (~GPDMA_DMACCxControl_DI);		// 1st block should not increment destination (All Rx write to dummy byte only)!
-	(pDmaTd+0)->src = ADO_SSP_GPDMA_CONN_RX[sspId];		// Source of First Block must be readjusted (from real peripheral address back to its Periphery-ID)
-														// in order to make the SGTransfer prepare work!
+#ifdef ADO_SSPDMA_BITFLIPSAFE
+	// Rewrite the constant part of the DMA-Ctrl structures every time used.
+	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
+	(pDmaTd+0)->src = 1;
+	(pDmaTd+0)->dst = (uint32_t)&rxDummy;
+	(pDmaTd+0)->lli = (uint32_t)(pDmaTd+1);
+	(pDmaTd+0)->ctrl = 0x00009006;
+	(pDmaTd+1)->src = (uint32_t)&(pSSP->DR);
+	(pDmaTd+1)->lli = 0;
+	(pDmaTd+1)->ctrl = 0x8800900A;
+	(pDmaTd+2)->dst = 0;
+	(pDmaTd+2)->lli = (uint32_t)(pDmaTd+3);
+	(pDmaTd+2)->ctrl = 0x04009006;
+	(pDmaTd+3)->src = (uint32_t)&txDummy;
+	(pDmaTd+3)->dst = (uint32_t)&(pSSP->DR);
+	(pDmaTd+3)->lli = 0;
+	(pDmaTd+3)->ctrl = 0x0000900A;
+#endif
+
 	Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+0), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
-
-	// Transmit Channel - 2 Blocks
-	// first n byte are the real TX
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, (pDmaTd+2), (uint32_t)newJob->txData, ADO_SSP_GPDMA_CONN_TX[sspId],  newJob->txSize, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, (pDmaTd+3));
-	// Then the tx channel only sends dummy 0xFF bytes in order to receive all rx bytes
-	Chip_GPDMA_PrepareDescriptor(LPC_GPDMA, (pDmaTd+3), (uint32_t)&txDummy,  ADO_SSP_GPDMA_CONN_TX[sspId], newJob->rxSize, GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA, 0);
-
-	// Some corrections needed here !!!!!
-	(pDmaTd+3)->ctrl &= (~GPDMA_DMACCxControl_SI);		// 2nd block should not increment source (All Tx write from dummy byte)!
-	(pDmaTd+2)->dst = ADO_SSP_GPDMA_CONN_TX[sspId];	 	// Destination of First Block must be readjusted (from real peripheral address back to Periphery-ID)
-														// in order to make the SGTransfer prepare work!
-	(pDmaTd+3)->ctrl &= (~GPDMA_DMACCxControl_I);		// We do mask the TC IRQ of the Tx DMA. We only are interested in the Rx-IRQ
 	Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+2), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
 }

@@ -85,7 +85,7 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 
 
 
-// This is the Pinmux for the OBC board - Onkly Uarts used and checked yet ....
+// This is the Pinmux for the OBC board - Only Uarts used and checked yet ....
 STATIC const PINMUX_GRP_T pinmuxing2[] = {
 	{ 0, 2, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 "Uart D" */
 	{ 0, 3, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 "Uart D" */
