@@ -36,125 +36,258 @@
 #define SDC_CS_PORT				0
 #define SDC_CS_PIN				4
 
-void SdcWithDMACmd(int argc, char *argv[]);
-void SdcWithDMACmd2(int argc, char *argv[]);
+typedef enum ado_sdc_status_e
+{
+	ADO_SDC_CARDSTATUS_UNDEFINED = 0,
+	ADO_SDC_CARDSTATUS_INIT_RESET,
+	ADO_SDC_CARDSTATUS_INIT_CMD8,
+	ADO_SDC_CARDSTATUS_INIT_ACMD41_1,
+	ADO_SDC_CARDSTATUS_INIT_ACMD41_2,
+	ADO_SDC_CARDSTATUS_INIT_ACMD41_3,
+	ADO_SDC_CARDSTATUS_ERROR = 99
+} ado_sdc_status_t;
 
 
-static ado_sspid_t sdcBusNr = -1;
-//volatile bool card_busy;
+
+void SdcInitCmd(int argc, char *argv[]);
+void SdcPowerupCmd(int argc, char *argv[]);
+void SdcInitStep2(void);
+void SdcInitStep3(void);
+void SdcInitStep4(void);
+
+
+static ado_sspid_t 		sdcBusNr = -1;
+static ado_sdc_status_t sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
+static bool				sdcCmdPending = false;
+static uint16_t			sdcWaitLoops = 0;
+static uint8_t 			sdcCmdData[60];
+static uint8_t 			sdcCmdResponse[30];
+
 
 
 void SdcInit(ado_sspid_t bus) {
 	sdcBusNr = bus;
 
-//	Chip_GPDMA_Init(LPC_GPDMA);
-//	NVIC_EnableIRQ (DMA_IRQn);
-
-	CliRegisterCommand("dma", SdcWithDMACmd);
-	CliRegisterCommand("dma2", SdcWithDMACmd2);
+	CliRegisterCommand("sdcInit", SdcInitCmd);
+	CliRegisterCommand("sdcPow", SdcPowerupCmd);
 
 }
 
-static bool cmd2finished[16];
-static bool cmd2result[16];
-static char res[] = "................";
-static bool changed = false;
-
-uint8_t rxData[16][64];
-
 void SdcMain(void) {
-
-	for (int i=0; i<16; i++) {
-		if (cmd2finished[i] == true) {
-			cmd2finished[i] = false;
-			changed = true;
-			if (cmd2result[i] == true) {
-				res[i] = 'O';
+	if (!sdcCmdPending) {
+		switch (sdcStatus) {
+		case ADO_SDC_CARDSTATUS_INIT_RESET:
+			if (sdcCmdResponse[1] == 0x01) {
+				SdcInitStep2();
 			} else {
-				res[i] = 'x';
+				printf("init reset Fehler\n");
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
+			break;
+		case ADO_SDC_CARDSTATUS_INIT_CMD8:
+			if (sdcCmdResponse[1] == 0x01) {
+				SdcInitStep3();
+//				printf("CMD8 accepted.\n");
+//				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			} else {
+				printf("CMD8 rejected.\n");
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
+		case ADO_SDC_CARDSTATUS_INIT_ACMD41_1:
+				if (sdcCmdResponse[1] == 0x01) {
+					SdcInitStep4();
+				} else {
+					printf("CMD55 rejected\n");
+					sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				}
+				break;
+
+		case ADO_SDC_CARDSTATUS_INIT_ACMD41_2:
+				if (sdcCmdResponse[1] == 0x01) {
+					//Init sequence is not finished yet.
+					// Lets wait some main.loops and then retry the ACMD41
+					sdcWaitLoops = 100;
+					sdcStatus = ADO_SDC_CARDSTATUS_INIT_ACMD41_3;
+					printf(".");
+				} else if (sdcCmdResponse[1] == 0x00) {
+					printf("Init Step finished\n");
+					sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				} else {
+					printf("No Valid Answer to ACMD41\n");
+					sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				}
+				break;
+		case ADO_SDC_CARDSTATUS_INIT_ACMD41_3:
+			if (sdcWaitLoops > 0) {
+				sdcWaitLoops--;
+				if (sdcWaitLoops == 0) {
+					// Rerty the ACMD41
+					SdcInitStep3();
+				}
+			}
+
+		default:
+			break;
 		}
 	}
-	if (changed) {
-		changed = false;
-		printf("R: %s\n", res);
-	}
+//	for (int i=0; i<16; i++) {
+//		if (cmd2finished[i] == true) {
+//			cmd2finished[i] = false;
+//			changed = true;
+//			if (cmd2result[i] == true) {
+//				res[i] = 'O';
+//			} else {
+//				res[i] = 'x';
+//			}
+//		}
+//	}
+//	if (changed) {
+//		changed = false;
+//		printf("R: %s\n", res);
+//	}
 }
 
 
 void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) {
-	if (context<16) {
-		cmd2finished[context] = true;
-		if (rxData[1] == 0x01) {
-			cmd2result[context] = true;
-		} else {
-			cmd2result[context] = false;
+	if (jobStatus == ADO_SSP_JOBDONE) {
+		sdcStatus = context;
+	} else {
+		sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+	}
+	sdcCmdPending = false;
+
+//	if (context<16) {
+//		cmd2finished[context] = true;
+//		if (rxData[1] == 0x01) {
+//			cmd2result[context] = true;
+//		} else {
+//			cmd2result[context] = false;
+//		}
+//	}
+}
+
+void SdcPowerupCmd(int argc, char *argv[]) {
+	LPC_SSP_T *sspBase = 0;
+	if (sdcBusNr == ADO_SSP0) {
+		sspBase = LPC_SSP0;
+	} else if  (sdcBusNr == ADO_SSP0) {
+		sspBase = LPC_SSP1;
+	}
+	if (sspBase != 0) {
+		uint8_t dummy; (void)dummy;
+		// Make 80 Clock without CS
+		for (int i=0;i<10;i++) {
+			sspBase->DR = 0x55;
+			dummy = sspBase->SR;
+			dummy = sspBase->DR; // Clear Rx buffer.
 		}
+		{ uint32_t temp; (void)temp; while ((sspBase->SR & SSP_STAT_RNE) != 0) { temp = sspBase->DR; } }
 	}
 }
 
 
-uint8_t txData[6];
-
-
-void SdcWithDMACmd2(int argc, char *argv[]) {
-	uint8_t dataCntToSend = 6;
-	uint8_t dataCntToReceive = 10;
-
-	txData[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
-	txData[1] = 0;
-	txData[2] = 0;
-	txData[3] = 0;
-	txData[4] = 0;
-	txData[5] = 0x95;
-
-//	for (int i =0; i< 64; i++) {
-//		rxData[i] = i;
-//	}
-
-
-	for (int i=0;i<16;i++) {	// test fill up the queue
-		cmd2finished[i] = false;
-		cmd2result[i] = false;
-		res[i] = '.';
-		for (int j =0; j< 64; j++) {
-			rxData[i][j] = j;
-		}
+void SdcInitCmd(int argc, char *argv[]) {
+	LPC_SSP_T *sspBase = 0;
+	if (sdcBusNr == ADO_SSP0) {
+		sspBase = LPC_SSP0;
+	} else if  (sdcBusNr == ADO_SSP0) {
+		sspBase = LPC_SSP1;
 	}
-	for (int i=0;i<16;i++) {	// test fill up the queue
-		ADO_SSP_AddJob(i, sdcBusNr, txData, &(rxData[i][0]), dataCntToSend, dataCntToReceive, DMAFinishedIRQ, 0);
+	if (sspBase != 0) {
+
+		// Now send Command GO_IDLE_STATE
+		sdcCmdData[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
+		sdcCmdData[1] = 0;
+		sdcCmdData[2] = 0;
+		sdcCmdData[3] = 0;
+		sdcCmdData[4] = 0;
+		sdcCmdData[5] = 0x95;
+
+		sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
+		sdcCmdPending = true;
+		ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_INIT_RESET, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 3, DMAFinishedIRQ, 0);
 	}
-
-
 }
 
-//void DMACmdFinished(ado_sspstatus_t status, uint8_t *rxData, uint16_t cnt) {
-//	if (rxData[1] != 0x01) {
-//		/* Error - Flash could not be accessed */
-//		printf("Error %02X %02X %02X", rxData[0], rxData[1], rxData[2]);
-//	} else {
-//		printf("DMA Reset ok!");
-//	}
-//}
+void SdcInitStep2(void) {
+	// Send CMD8
+	sdcCmdData[0] = 0x40 | SEND_IF_COND;		// CMD consists of 6 bytes to send.sdc
+	sdcCmdData[1] = 0x00;
+	sdcCmdData[2] = 0x00;
+	sdcCmdData[3] = 0x01;
+	sdcCmdData[4] = 0xAA;
+	sdcCmdData[5] = 0x87;
 
-void SdcWithDMACmd(int argc, char *argv[]) {
+	sdcCmdPending = true;
+	ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_INIT_CMD8, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 7, DMAFinishedIRQ, 0);
+}
+
+void SdcInitStep3(void) {
+	// Send CMD55 - ACMD41
+	sdcCmdData[0] = 0x40 | APP_CMD;
+	sdcCmdData[1] = 0x00;
+	sdcCmdData[2] = 0x00;
+	sdcCmdData[3] = 0x00;
+	sdcCmdData[4] = 0x00;
+	sdcCmdData[5] = 0xFF;
+//	sdcCmdData[6] = 0x40 | SD_SEND_OP_COND;
+//	sdcCmdData[7] = 0x00;
+//	sdcCmdData[8] = 0x00;
+//	sdcCmdData[9] = 0x01;
+//	sdcCmdData[10] = 0xAA;
+//	sdcCmdData[11] = 0xFF;
+
+	sdcCmdPending = true;
+	ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_INIT_ACMD41_1, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 3, DMAFinishedIRQ, 0);
+}
+
+void SdcInitStep4(void) {
+	// Send CMD55 - ACMD41
+	sdcCmdData[0] = 0x40 | SD_SEND_OP_COND;
+	sdcCmdData[1] = 0x40;
+	sdcCmdData[2] = 0x00;
+	sdcCmdData[3] = 0x00;
+	sdcCmdData[4] = 0x00;
+	sdcCmdData[5] = 0xFF;
+
+	sdcCmdPending = true;
+	ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_INIT_ACMD41_2, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 7, DMAFinishedIRQ, 0);
+}
+
+
+//
+//static bool cmd2finished[16];
+//static bool cmd2result[16];
+//static char res[] = "................";
+//static bool changed = false;
+//uint8_t rxData[16][64];
+//
+//void SdcWithDMACmd2(int argc, char *argv[]) {
 //	uint8_t dataCntToSend = 6;
-//	uint8_t dataCntToReceive = 64;
-//	uint8_t bytesToProcess = dataCntToSend + dataCntToReceive;
-//	uint8_t dmaTxDataBuffer[512];
+//	uint8_t dataCntToReceive = 10;
 //
-//	for (int i = 0; i<bytesToProcess; i++) {
-//		dmaTxDataBuffer[i] = 0xFF;
+//	sdcCmdData[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
+//	sdcCmdData[1] = 0;
+//	sdcCmdData[2] = 0;
+//	sdcCmdData[3] = 0;
+//	sdcCmdData[4] = 0;
+//	sdcCmdData[5] = 0x95;
+//
+//
+//	for (int i=0;i<16;i++) {	// test fill up the queue
+//		cmd2finished[i] = false;
+//		cmd2result[i] = false;
+//		res[i] = '.';
+//		for (int j =0; j< 64; j++) {
+//			rxData[i][j] = j;
+//		}
 //	}
-//	dmaTxDataBuffer[0] = 0x40 | GO_IDLE_STATE;		// CMD consists of 6 bytes to send.sdc
-//	dmaTxDataBuffer[1] = 0;
-//	dmaTxDataBuffer[2] = 0;
-//	dmaTxDataBuffer[3] = 0;
-//	dmaTxDataBuffer[4] = 0;
-//	dmaTxDataBuffer[5] = 0x95;
+//	for (int i=0;i<16;i++) {	// test fill up the queue
+//		ADO_SSP_AddJob(i, sdcBusNr, sdcCmdData, &(rxData[i][0]), dataCntToSend, dataCntToReceive, DMAFinishedIRQ, 0);
+//	}
 //
-//	//ADO_SSP_AddJobSharedBuffer(sdcBusNr, dmaTxDataBuffer, dataCntToSend, dataCntToReceive, DMACmdFinished);
-
-}
+//
+//}
 
 

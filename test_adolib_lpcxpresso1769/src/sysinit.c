@@ -96,22 +96,22 @@ STATIC const PINMUX_GRP_T pinmuxing2[] = {
 	{ 0, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 "Uart A" */
 	{ 0, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 "Uart A" */
 
-//	{ 0, 22, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led red       */
-//	{ 3, 25, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led green     */
-//	{ 3, 26, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led blue      */
-//
-//	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA 	    */	// J2-25
-//	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL 	    */  // J2-26
-//
-//	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA      */ // PAD8 	this connects to boards e2prom with address 0x50
-//	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
-//
-//	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
-//	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recommended' SSL for SSP0
-//	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
-//	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
-//
-//	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
+	{ 0, 22, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led red       */
+	{ 3, 25, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led green     */
+	{ 3, 26, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led blue      */
+
+	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA 	    */	// J2-25
+	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL 	    */  // J2-26
+
+	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA      */ // PAD8 	this connects to boards e2prom with address 0x50
+	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
+
+	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
+	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recommended' SSL for SSP0
+	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
+	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
+
+	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
 

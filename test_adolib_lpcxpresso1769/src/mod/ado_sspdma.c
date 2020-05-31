@@ -18,10 +18,11 @@
 // Inline Block to clear SSP Rx Buffer.
 #define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
 
+
 // Following constants hold the Configuration data for both SSPx interfaces. idx=0 -> SSP0 idx=1 ->SSP1
 const LPC_SSP_T *ADO_SSP_RegBase[] = {
-	LPC_SSP0,					
-	LPC_SSP1					
+	LPC_SSP0,
+	LPC_SSP1
 };
 
 const CHIP_SYSCTL_CLOCK_T ADO_SSP_SysCtlClock[] = {
@@ -196,7 +197,7 @@ void DMA_IRQHandler(void) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
 		// This was SSP0 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[0].job[ado_sspjobs[0].current_job];
-		job->ADO_SSP_JobFinished_IRQCallback(job->context, SSP_JOB_STATE_DONE, job->rxData, job->rxSize);
+		job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
 
 		ado_sspjobs[0].jobs_pending--;
 		if (ado_sspjobs[0].jobs_pending > 0) {
@@ -212,7 +213,7 @@ void DMA_IRQHandler(void) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL1);
 		// This was SSP1 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[1].job[ado_sspjobs[1].current_job];
-		job->ADO_SSP_JobFinished_IRQCallback(job->context, SSP_JOB_STATE_DONE, job->rxData, job->rxSize);
+		job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
 
 		ado_sspjobs[1].jobs_pending--;
 		if (ado_sspjobs[1].jobs_pending > 0) {
@@ -236,9 +237,13 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);
 	}
 
-	// Adjust the rx/tx addresses in prepared dma control structures.
+	// Adjust the rx/tx addresses and length in prepared dma control structures.
+	(pDmaTd+0)->ctrl =  0x00009000 | (uint32_t)(newJob->txSize);
+	(pDmaTd+1)->ctrl =  0x88009000 | (uint32_t)(newJob->rxSize);
 	(pDmaTd+1)->dst = (uint32_t)newJob->rxData;
+	(pDmaTd+2)->ctrl =  0x04009000 | (uint32_t)(newJob->txSize);
 	(pDmaTd+2)->src = (uint32_t)newJob->txData;
+	(pDmaTd+3)->ctrl =  0x00009000 | (uint32_t)(newJob->rxSize);
 
 #ifdef ADO_SSPDMA_BITFLIPSAFE
 	// Rewrite the constant part of the DMA-Ctrl structures every time used.
@@ -246,17 +251,17 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	(pDmaTd+0)->src = 1;
 	(pDmaTd+0)->dst = (uint32_t)&rxDummy;
 	(pDmaTd+0)->lli = (uint32_t)(pDmaTd+1);
-	(pDmaTd+0)->ctrl = 0x00009006;
+	//(pDmaTd+0)->ctrl = 0x00009006;
 	(pDmaTd+1)->src = (uint32_t)&(pSSP->DR);
 	(pDmaTd+1)->lli = 0;
-	(pDmaTd+1)->ctrl = 0x8800900A;
+	//(pDmaTd+1)->ctrl = 0x8800900A;
 	(pDmaTd+2)->dst = 0;
 	(pDmaTd+2)->lli = (uint32_t)(pDmaTd+3);
-	(pDmaTd+2)->ctrl = 0x04009006;
+	//(pDmaTd+2)->ctrl = 0x04009006;
 	(pDmaTd+3)->src = (uint32_t)&txDummy;
 	(pDmaTd+3)->dst = (uint32_t)&(pSSP->DR);
 	(pDmaTd+3)->lli = 0;
-	(pDmaTd+3)->ctrl = 0x0000900A;
+	//(pDmaTd+3)->ctrl = 0x0000900A;
 #endif
 
 	Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+0), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);

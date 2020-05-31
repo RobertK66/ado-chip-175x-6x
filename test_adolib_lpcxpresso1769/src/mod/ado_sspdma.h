@@ -24,16 +24,16 @@ typedef enum ado_sspid_e
 
 typedef enum ado_sspstatus_e
 {
-	SSP_JOB_STATE_NEW = 0, SSP_JOB_STATE_DONE, SSP_JOB_STATE_ERROR, SSP_JOB_BUFFER_OVERFLOW
+	SSP_JOB_STATE_NEW = 0, ADO_SSP_JOBDONE, SSP_JOB_STATE_ERROR, SSP_JOB_BUFFER_OVERFLOW
 } ado_sspstatus_t;
 
 #define AdoSSP_FinishedHandler(name) void(*name)(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize)
 #define AdoSSP_ActivateHandler(name) void(*name)(uint32_t context)
 
+
+
+
 void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate);
-
-//void ADO_SSP_AddJobSingle();
-
 void ADO_SSP_AddJob( uint32_t 	context,
 					 ado_sspid_t sspId,
 					 uint8_t     *txData,

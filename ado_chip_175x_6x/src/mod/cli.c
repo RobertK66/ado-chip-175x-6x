@@ -214,7 +214,7 @@ void CliMain(){
 			cliRxBuffer[cliRxPtrIdx] = 0x00;
 			processLine();
 			cliRxPtrIdx = 0;
-			puts(CLI_PROMPT);
+			printf(CLI_PROMPT);
 		}
 	}
 
