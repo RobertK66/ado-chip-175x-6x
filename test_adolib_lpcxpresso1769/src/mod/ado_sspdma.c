@@ -191,7 +191,7 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_
 
 
 void DMA_IRQHandler(void) {
-	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
+	// Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
 	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
 	if ( tcs & (1UL<<ADO_SSP_RXDMACHANNEL0) ) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
@@ -225,7 +225,7 @@ void DMA_IRQHandler(void) {
 			ADO_SSP_InitiateDMA(ADO_SSP1,&ado_sspjobs[1].job[ado_sspjobs[1].current_job]);
 		}
 	}
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+	// Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 }
 
 // __attribute__((always_inline))		// This gives another 0,5% Performance improvement but it needs 150..200 bytes more prog memory!
