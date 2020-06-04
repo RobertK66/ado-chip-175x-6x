@@ -191,7 +191,7 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_
 
 
 void DMA_IRQHandler(void) {
-	// Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
 	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
 	if ( tcs & (1UL<<ADO_SSP_RXDMACHANNEL0) ) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
@@ -225,7 +225,7 @@ void DMA_IRQHandler(void) {
 			ADO_SSP_InitiateDMA(ADO_SSP1,&ado_sspjobs[1].job[ado_sspjobs[1].current_job]);
 		}
 	}
-	// Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 }
 
 // __attribute__((always_inline))		// This gives another 0,5% Performance improvement but it needs 150..200 bytes more prog memory!
@@ -264,6 +264,16 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	//(pDmaTd+3)->ctrl = 0x0000900A;
 #endif
 
-	Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+0), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
-	Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+2), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
+	if (newJob->txSize > 0) {
+		(pDmaTd+1)->src = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);
+		(pDmaTd+3)->dst = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);
+		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+0), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
+		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+2), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
+	} else {
+		// TX block is 0, so we start with second DMA Blocks - only rx part of job
+		(pDmaTd+1)->src = 1;
+		(pDmaTd+3)->dst = 0;
+		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+1), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
+		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+3), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
+	}
 }

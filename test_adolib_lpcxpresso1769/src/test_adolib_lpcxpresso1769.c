@@ -54,7 +54,7 @@ int main(void) {
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
 	StopWatch_Init1(LPC_TIMER0);
-	ADO_SSP_Init(ADO_SSP0, 12000000);			// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
+	ADO_SSP_Init(ADO_SSP0, 24000000);			// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
 	SdcInit(ADO_SSP0);
 
 	// register test command ...

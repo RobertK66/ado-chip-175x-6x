@@ -7,6 +7,7 @@
 #include "ado_sdcard.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <mod/cli.h>
 
@@ -46,6 +47,9 @@ typedef enum ado_sdc_status_e
 	ADO_SDC_CARDSTATUS_INIT_ACMD41_3,
 	ADO_SDC_CARDSTATUS_INIT_READ_OCR,
 	ADO_SDC_CARDSTATUS_INITIALIZED,
+	ADO_SDC_CARDSTATUS_READ_SBCMD,
+	ADO_SDC_CARDSTATUS_READ_SBWAITDATA,
+	ADO_SDC_CARDSTATUS_READ_SBDATA,
 	ADO_SDC_CARDSTATUS_ERROR = 999
 } ado_sdc_status_t;
 
@@ -58,9 +62,10 @@ typedef enum ado_sdc_cardtype_e
 } ado_sdc_cardtype_t;
 
 
-
-void SdcInitCmd(int argc, char *argv[]);
+void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize);
 void SdcPowerupCmd(int argc, char *argv[]);
+void SdcInitCmd(int argc, char *argv[]);
+void SdcReadCmd(int argc, char *argv[]);
 void SdcInitStep2(void);
 void SdcInitStep3(void);
 void SdcInitStep4(void);
@@ -70,8 +75,9 @@ static ado_sspid_t 		sdcBusNr = -1;
 static ado_sdc_status_t sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
 static bool				sdcCmdPending = false;
 static uint16_t			sdcWaitLoops = 0;
+static uint16_t			sdcDumpLines = 0;
 static uint8_t 			sdcCmdData[10];
-static uint8_t 			sdcCmdResponse[10];
+static uint8_t 			sdcCmdResponse[1024];
 
 static ado_sdc_cardtype_t sdcType = ADO_SDC_CARD_UNKNOWN;
 
@@ -81,10 +87,13 @@ void SdcInit(ado_sspid_t bus) {
 
 	CliRegisterCommand("sdcPow", SdcPowerupCmd);
 	CliRegisterCommand("sdcInit", SdcInitCmd);
+	CliRegisterCommand("sdcRead", SdcReadCmd);
 }
 
 void SdcMain(void) {
+
 	if (!sdcCmdPending) {
+		// This is the sdc state engine reacting to a finished SPI job
 		switch (sdcStatus) {
 		case ADO_SDC_CARDSTATUS_INIT_RESET:
 			if (sdcCmdResponse[1] == 0x01) {
@@ -103,40 +112,40 @@ void SdcMain(void) {
 			}
 			break;
 		case ADO_SDC_CARDSTATUS_INIT_ACMD41_1:
-				if (sdcCmdResponse[1] == 0x01) {
-					SdcInitStep4();
-				} else {
-					printf("CMD55 rejected\n");
-					sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
-				}
-				break;
+			if (sdcCmdResponse[1] == 0x01) {
+				SdcInitStep4();
+			} else {
+				printf("CMD55 rejected\n");
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_ACMD41_2:
-				if (sdcCmdResponse[1] == 0x01) {
-					// Init sequence is not finished yet(idle mode).
-					// Lets wait some main loops and then retry the ACMD41
-					sdcWaitLoops = 100;
-					sdcStatus = ADO_SDC_CARDSTATUS_INIT_ACMD41_3;
-					printf(".");
-				} else if (sdcCmdResponse[1] == 0x00) {
-					printf("\n");
-					SdcInitStep5();
-				} else {
-					printf("Errors %02X to ACMD41\n", sdcCmdResponse[1]);
-					sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
-				}
-				break;
+			if (sdcCmdResponse[1] == 0x01) {
+				// Init sequence is not finished yet(idle mode).
+				// Lets wait some main loops and then retry the ACMD41
+				sdcWaitLoops = 100;
+				sdcStatus = ADO_SDC_CARDSTATUS_INIT_ACMD41_3;
+				printf(".");
+			} else if (sdcCmdResponse[1] == 0x00) {
+				printf("\n");
+				SdcInitStep5();
+			} else {
+				printf("Errors %02X to ACMD41\n", sdcCmdResponse[1]);
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_READ_OCR:
-				if (sdcCmdResponse[1] == 0x00) {
-					if ((sdcType == ADO_SDC_CARD_20SD) &&
-						((sdcCmdResponse[2] & 0x40) != 0)) {
-						sdcType = ADO_SDC_CARD_20HCXC;
-					}
-					sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
-					printf("Card (type %d) initialized.\n", sdcType);
+			if (sdcCmdResponse[1] == 0x00) {
+				if ((sdcType == ADO_SDC_CARD_20SD) &&
+					((sdcCmdResponse[2] & 0x40) != 0)) {
+					sdcType = ADO_SDC_CARD_20HCXC;
 				}
-				break;
+				sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
+				printf("Card (type %d) initialized.\n", sdcType);
+			}
+			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_ACMD41_3:
 			if (sdcWaitLoops > 0) {
@@ -146,11 +155,71 @@ void SdcMain(void) {
 					SdcInitStep3();
 				}
 			}
+			break;
 
-		// Nothing needed here
+		case ADO_SDC_CARDSTATUS_READ_SBCMD:
+			if ((sdcCmdResponse[1] == 0x00) || (sdcCmdResponse[2] == 0x00))  {
+				// Lets wait for the start data token.
+				sdcCmdPending = true;
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBWAITDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+			} else {
+				printf("Error with read block command\n");
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
+
+		case ADO_SDC_CARDSTATUS_READ_SBWAITDATA:
+			if (sdcCmdResponse[0] == 0xFE) {
+				// Now we can read all data bytes
+				sdcCmdPending = true;
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 514, DMAFinishedIRQ, 0);
+			} else {
+				// TODO: Hier ein bisschen Zeit / Hauptschleifen vergeuden und dann erst wieder auf Token abfragen!?
+				sdcCmdPending = true;
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBWAITDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+			}
+			break;
+
+
+		case ADO_SDC_CARDSTATUS_READ_SBDATA:
+		{
+			sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
+			sdcDumpLines = 16;
+			printf("Data received:\n");
+			break;
+		}
+
+		// Nothing needed here - only count down the main loop timer
 		case ADO_SDC_CARDSTATUS_INITIALIZED:
+			if (sdcWaitLoops > 0) {
+				sdcWaitLoops--;
+			}
 		default:
 			break;
+		}
+
+		// Now lets do other stuff in main loop
+		if (sdcWaitLoops == 0) {
+			// Do other stuff in Mainloop
+			if (sdcDumpLines > 0) {
+				uint8_t *ptr = &sdcCmdResponse[32*(16-sdcDumpLines)];
+				char hex[100];
+				char asci[33];
+				for (int i=0;i<32;i++) {
+					char c = *(ptr+i);
+					sprintf(&hex[i*3],"%02X ", c);
+					if (c > 0x20) {
+						asci[i] = c;
+					} else {
+						asci[i] = '.';
+					}
+				}
+				asci[32] = 0;
+				hex[96] = 0;
+				printf("%s %s\n", hex, asci);
+				sdcWaitLoops = 1000;
+				sdcDumpLines--;
+			}
 		}
 	}
 }
@@ -162,7 +231,6 @@ void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData
 		sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 	}
 	sdcCmdPending = false;
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 }
 
 void SdcPowerupCmd(int argc, char *argv[]) {
@@ -249,8 +317,6 @@ void SdcInitStep4(void) {
 	sdcCmdData[5] = 0xFF;
 
     sdcCmdPending = true;
-    Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
-
 	ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_INIT_ACMD41_2, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 3, DMAFinishedIRQ, 0);
 }
 
@@ -266,5 +332,28 @@ void SdcInitStep5() {
 
 	sdcCmdPending = true;
 	ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_INIT_READ_OCR, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 7, DMAFinishedIRQ, 0);
+}
+
+void SdcReadCmd(int argc, char *argv[]){
+	uint32_t adr = 0;
+	if (argc > 0) {
+		adr = atoi(argv[0]);
+	}
+	adr = adr << 9;
+
+
+	if (sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+		sdcCmdData[0] = 0x40 | READ_SINGLE_BLOCK;
+		sdcCmdData[1] = (uint8_t)(adr>>24);
+		sdcCmdData[2] = (uint8_t)(adr>>16);
+		sdcCmdData[3] = (uint8_t)(adr>>8);
+	    sdcCmdData[4] = (uint8_t)(adr);
+		sdcCmdData[5] = 0xFF;
+
+		sdcCmdPending = true;
+		ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBCMD, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , 3, DMAFinishedIRQ, 0);
+	} else {
+		printf("Card not ready to receive commands....");
+	}
 }
 
