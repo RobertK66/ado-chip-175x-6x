@@ -14,7 +14,7 @@
 uint16_t CRC16_0x1021(const uint8_t* data_p, uint16_t length, uint16_t start);
 
 // Following named CRC16 and aliases can be constructed with above routine.
-// See: 'http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat-bits.16'
+// See: http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat-bits.16
 // This are versions and aliases with different start and xorout values.
 
 // width=16 poly=0x1021 init=0xffff refin=false refout=false xorout=0x0000 check=0x29b1 residue=0x0000 name="CRC-16/IBM-3740"

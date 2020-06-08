@@ -76,7 +76,11 @@ typedef enum ado_sdc_status_e
 	ADO_SDC_CARDSTATUS_READ_SBWAITDATA,
 	ADO_SDC_CARDSTATUS_READ_SBWAITDATA2,
 	ADO_SDC_CARDSTATUS_READ_SBDATA,
-	ADO_SDC_CARDSTATUS_ERROR = 999
+	ADO_SDC_CARDSTATUS_WRITE_SBCMD,
+	ADO_SDC_CARDSTATUS_WRITE_SBDATA,
+	ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT,
+	ADO_SDC_CARDSTATUS_WRITE_CHECKSTATUS,
+	ADO_SDC_CARDSTATUS_ERROR = 9999
 } ado_sdc_status_t;
 
 typedef enum ado_sdc_cardtype_e
@@ -94,6 +98,7 @@ void SdcSendCommand(ado_sdc_cmd_t cmd, uint32_t jobContext, uint32_t arg);
 //void SdcPowerupCmd(int argc, char *argv[]);
 void SdcInitCmd(int argc, char *argv[]);
 void SdcReadCmd(int argc, char *argv[]);
+void SdcEditCmd(int argc, char *argv[]);
 void SdcWriteCmd(int argc, char *argv[]);
 
 
@@ -121,9 +126,12 @@ void SdcInit(ado_sspid_t bus) {
 //	CliRegisterCommand("sdcPow", SdcPowerupCmd);
 	CliRegisterCommand("sdcInit", SdcInitCmd);
 	CliRegisterCommand("sdcRead", SdcReadCmd);
+	CliRegisterCommand("sdcEdit", SdcEditCmd);
+	CliRegisterCommand("sdcWrite", SdcWriteCmd);
 }
 
 void SdcMain(void) {
+
 
 	if (!sdcCmdPending) {
 		// This is the sdc state engine reacting to a finished SPI job
@@ -261,12 +269,62 @@ void SdcMain(void) {
 			printf("\nData received Block 0x%08X: CRC ", sdcCurRwBlockNr);
 			if (0 == crc) {
 				printf("OK\n");
+				memcpy(sdcEditBlock, sdcRwData, 512);
+				sdcDumpLines = 16;		// Start output
 			} else {
 				printf("ERROR\n");
 			}
-			sdcDumpLines = 16;		// Start output
 			break;
 		}
+
+		case ADO_SDC_CARDSTATUS_WRITE_SBCMD:
+			if (sdcCmdResponse[1] == 0x00) {
+				// Now we can write all data bytes including 1 Start token and 2byte CRC. We expect 1 byte data response token....
+				sdcCmdPending = true;
+				printf("\nw");
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_SBDATA, sdcBusNr, sdcRwData, sdcCmdResponse, 515 , 3, DMAFinishedIRQ, 0);
+			} else {
+				printf("Error %02X %02X with read block command\n",sdcCmdResponse[1], sdcCmdResponse[2] );
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
+
+		case ADO_SDC_CARDSTATUS_WRITE_SBDATA:
+			if ((sdcCmdResponse[0] & 0x1F) == 0x05) {
+				// Data was accepted. now we wait until busy token is off again....
+				// Read 1 byte to check for busy token
+				sdcCmdPending = true;
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+				printf("5");
+			} else {
+				printf("Error %02X %02X with write data block\n", sdcCmdResponse[0], sdcCmdResponse[1] );
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
+
+		case ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT:
+			if (sdcCmdResponse[0] == 0x00) {
+				// still busy !?
+				// Read 1 byte to check for busy token
+				sdcCmdPending = true;
+				printf("o");
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+			} else {
+				// busy is off now. Lets Check Status
+				// Send CMD13
+				SdcSendCommand(ADO_SDC_CMD13_SEND_STATUS, ADO_SDC_CARDSTATUS_WRITE_CHECKSTATUS, 0);
+			}
+			break;
+
+		case ADO_SDC_CARDSTATUS_WRITE_CHECKSTATUS:
+			if (sdcCmdResponse[1] == 0x00) {
+				sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
+				printf("!\n");
+			} else {
+				printf("Error %02X %02X answer to CMD13\n", sdcCmdResponse[1], sdcCmdResponse[2] );
+				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+			}
+			break;
 
 		// Nothing needed here - only count down the main loop timer
 		case ADO_SDC_CARDSTATUS_INITIALIZED:
@@ -281,7 +339,7 @@ void SdcMain(void) {
 		if (sdcWaitLoops == 0) {
 			// Do other stuff in Mainloop
 			if (sdcDumpLines > 0) {
-				uint8_t *ptr = &sdcRwData[32*(16-sdcDumpLines)];
+				uint8_t *ptr = &sdcEditBlock[32*(16-sdcDumpLines)];
 				char hex[100];
 				char asci[33];
 				for (int i=0;i<32;i++) {
@@ -330,6 +388,8 @@ void SdcSendCommand(ado_sdc_cmd_t cmd, uint32_t jobContext, uint32_t arg) {
 		responseSize = 7;
 	} else if (cmd ==  ADO_SDC_CMD58_READ_OCR) {
 		responseSize = 7;
+	}  else if (cmd ==  ADO_SDC_CMD13_SEND_STATUS) {
+		responseSize = 4;
 	}
 
 	sdcCmdPending = true;
@@ -398,6 +458,44 @@ void SdcReadCmd(int argc, char *argv[]){
 }
 
 void SdcWriteCmd(int argc, char *argv[]) {
+	sdcRwData[0] = 0xFE;							// Data Block Start token
+	memcpy(sdcRwData + 1, sdcEditBlock, 512);
+	uint16_t crc = CRC16_XMODEM(sdcRwData, 512);
+	sdcRwData[513] = (uint8_t)(crc >> 8);
+	sdcRwData[514] = (uint8_t)crc;
+
+	if (argc > 0) {
+		 sdcCurRwBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
+	}
+
+	if (sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+		SdcSendCommand(ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, sdcCurRwBlockNr);
+	} else {
+		printf("Card not ready to receive commands....\n");
+	}
 
 }
 
+void SdcEditCmd(int argc, char *argv[]) {
+	uint16_t adr = 0;
+	char *content = "Test Edit from LPC1769";
+
+	if (argc > 0) {
+		 adr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
+		 adr &= 0x01FF;
+	}
+
+	if (argc > 1) {
+		content = argv[1];
+	}
+
+	int i = 0;
+	for (uint8_t *ptr = (uint8_t*)(sdcEditBlock + adr); ptr < (uint8_t*)(sdcEditBlock + adr + strlen(content)); ptr++) {
+		if (ptr < (sdcEditBlock + 512)) {
+			*ptr = content[i++];
+		}
+	}
+	printf("Block modified: \n");
+	sdcWaitLoops = 3000;
+	sdcDumpLines = 16;
+}
