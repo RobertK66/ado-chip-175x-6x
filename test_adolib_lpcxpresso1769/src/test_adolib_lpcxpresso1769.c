@@ -23,6 +23,7 @@
 
 #include "tests/test_ringbuffer.h"
 #include "tests/test_systemconfigs.h"
+#include "tests/test_crc.h"
 
 #include "mod/ado_sdcard.h"
 #include "mod/ado_sspdma.h"
@@ -31,7 +32,8 @@
 // collect all module tests together into one test suite.
 static const test_t moduleTests[] = {
    trbTestSuite,
-   sysTestSuite
+   sysTestSuite,
+   tcrcTestSuite
 };
 static const test_t moduleTestSuite = TEST_SUITE("main", moduleTests);
 

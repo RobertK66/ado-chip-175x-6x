@@ -10,8 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mod/cli.h>
+#include <ado_crc.h>
 
 #include "ado_sspdma.h"
+
 
 //SD commands, many of these are not used here
 #define GO_IDLE_STATE            0
@@ -89,22 +91,26 @@ typedef enum ado_sdc_cardtype_e
 void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize);
 void SdcSendCommand(ado_sdc_cmd_t cmd, uint32_t jobContext, uint32_t arg);
 
-void SdcPowerupCmd(int argc, char *argv[]);
+//void SdcPowerupCmd(int argc, char *argv[]);
 void SdcInitCmd(int argc, char *argv[]);
 void SdcReadCmd(int argc, char *argv[]);
-//void SdcInitStep2(void);
-//void SdcInitStep3(void);
-//void SdcInitStep4(void);
-//void SdcInitStep5(void);
+void SdcWriteCmd(int argc, char *argv[]);
+
 
 static ado_sspid_t 		sdcBusNr = -1;
 static ado_sdc_status_t sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
 static bool				sdcCmdPending = false;
 static uint16_t			sdcWaitLoops = 0;
 static uint16_t			sdcDumpLines = 0;
+
+
+static uint32_t 		sdcCurRwBlockNr;
+static uint8_t 			sdcRwData[520];
+static uint8_t 			sdcEditBlock[512];
+
 static uint8_t 			sdcCmdData[10];
-static uint8_t 			sdcCmdResponse[1024];
-static uint32_t 		curBlockNr;
+static uint8_t 			sdcCmdResponse[24];
+
 
 static ado_sdc_cardtype_t sdcType = ADO_SDC_CARD_UNKNOWN;
 
@@ -228,7 +234,7 @@ void SdcMain(void) {
 			if (sdcCmdResponse[0] == 0xFE) {
 				// Now we can read all data bytes including 2byte CRC + 1 byte over-read as always to get the shift register in the card emptied....
 				sdcCmdPending = true;
-				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 515, DMAFinishedIRQ, 0);
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBDATA, sdcBusNr, sdcCmdData, sdcRwData, 0 , 515, DMAFinishedIRQ, 0);
 			} else {
 				// Wait some mainloops before asking for data token again.
 				sdcStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA2;
@@ -247,13 +253,18 @@ void SdcMain(void) {
 			}
 			break;
 
-
-
 		case ADO_SDC_CARDSTATUS_READ_SBDATA:
 		{
 			sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
-			sdcDumpLines = 16;
-			printf("\nData received Block %d (0x%08X):\n", curBlockNr, curBlockNr);
+
+			uint16_t crc = CRC16_XMODEM(sdcRwData, 514);
+			printf("\nData received Block 0x%08X: CRC ", sdcCurRwBlockNr);
+			if (0 == crc) {
+				printf("OK\n");
+			} else {
+				printf("ERROR\n");
+			}
+			sdcDumpLines = 16;		// Start output
 			break;
 		}
 
@@ -270,7 +281,7 @@ void SdcMain(void) {
 		if (sdcWaitLoops == 0) {
 			// Do other stuff in Mainloop
 			if (sdcDumpLines > 0) {
-				uint8_t *ptr = &sdcCmdResponse[32*(16-sdcDumpLines)];
+				uint8_t *ptr = &sdcRwData[32*(16-sdcDumpLines)];
 				char hex[100];
 				char asci[33];
 				for (int i=0;i<32;i++) {
@@ -284,7 +295,7 @@ void SdcMain(void) {
 				}
 				asci[32] = 0;
 				hex[96] = 0;
-				printf("%03X-%08X: %s %s\n", (curBlockNr>>23), (curBlockNr<<9) + 32*(16-sdcDumpLines), hex, asci);
+				printf("%03X-%08X: %s %s\n", (sdcCurRwBlockNr>>23), (sdcCurRwBlockNr<<9) + 32*(16-sdcDumpLines), hex, asci);
 				sdcWaitLoops = 3000;
 				sdcDumpLines--;
 			}
@@ -369,14 +380,14 @@ void SdcReadCmd(int argc, char *argv[]){
 	uint32_t arg = 0;
 	if (argc > 0) {
 		//adr = atoi(argv[0]);
-		curBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
+		sdcCurRwBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
 	}
 	if (sdcType == ADO_SDC_CARD_20SD) {
 		// SD Cards take byte addresses as argument
-		arg = curBlockNr << 9;
+		arg = sdcCurRwBlockNr << 9;
 	} else {
 		// 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
-		arg = curBlockNr;
+		arg = sdcCurRwBlockNr;
 	}
 
 	if (sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
@@ -384,5 +395,9 @@ void SdcReadCmd(int argc, char *argv[]){
 	} else {
 		printf("Card not ready to receive commands....\n");
 	}
+}
+
+void SdcWriteCmd(int argc, char *argv[]) {
+
 }
 
