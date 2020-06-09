@@ -118,26 +118,26 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 	ado_sspjobs[sspId].dmaTd[0].src = 1;
 	ado_sspjobs[sspId].dmaTd[0].dst = (uint32_t)&rxDummy;
 	ado_sspjobs[sspId].dmaTd[0].lli = (uint32_t)(&ado_sspjobs[sspId].dmaTd[1]);
-	ado_sspjobs[sspId].dmaTd[0].ctrl = 0x00009006;
+	ado_sspjobs[sspId].dmaTd[0].ctrl = 0x00009000;
 
 	// Then the real receive starts to write into rxData
 	ado_sspjobs[sspId].dmaTd[1].src = (uint32_t)&(pSSP->DR);
 	ado_sspjobs[sspId].dmaTd[1].dst = 0;					// This will be filled by job entry later.
 	ado_sspjobs[sspId].dmaTd[1].lli = 0;
-	ado_sspjobs[sspId].dmaTd[1].ctrl = 0x8800900A;
+	ado_sspjobs[sspId].dmaTd[1].ctrl = 0x88009000;
 
 	// Transmit Channel - 2 Blocks
 	// first n byte are the real TX
 	ado_sspjobs[sspId].dmaTd[2].src = 0;					// This will be filled by job entry later.
 	ado_sspjobs[sspId].dmaTd[2].dst = 0;
 	ado_sspjobs[sspId].dmaTd[2].lli = (uint32_t)(&ado_sspjobs[sspId].dmaTd[3]);
-	ado_sspjobs[sspId].dmaTd[2].ctrl = 0x04009006;
+	ado_sspjobs[sspId].dmaTd[2].ctrl = 0x04009000;
 
 	// Then the tx channel only sends dummy 0xFF bytes in order to receive all rx bytes
 	ado_sspjobs[sspId].dmaTd[3].src = (uint32_t)&txDummy;
 	ado_sspjobs[sspId].dmaTd[3].dst = (uint32_t)&(pSSP->DR);
 	ado_sspjobs[sspId].dmaTd[3].lli = 0;
-	ado_sspjobs[sspId].dmaTd[3].ctrl = 0x0000900A;
+	ado_sspjobs[sspId].dmaTd[3].ctrl = 0x00009000;
 
 	Chip_GPDMA_Init(LPC_GPDMA);
 	NVIC_EnableIRQ (DMA_IRQn);
@@ -234,7 +234,7 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 
 	if (newJob->ADO_SSP_JobActivated_IRQCallback != 0) {
 		// This could be used to activate a CS line other than the SSL of the SSP HW Unit.
-		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);
+		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);			//TODO: 1st Test it, 2nd where is 'Deactivate' called!?
 	}
 
 	// Adjust the rx/tx addresses and length in prepared dma control structures.
@@ -245,7 +245,7 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	(pDmaTd+2)->src = (uint32_t)newJob->txData;
 	(pDmaTd+3)->ctrl =  0x00009000 | (uint32_t)(newJob->rxSize);
 
-#ifdef ADO_SSPDMA_BITFLIPSAFE
+#ifdef ADO_SSPDMA_BITFLIPSAFE												//TODO: re-test this version after all refactorings finished.....
 	// Rewrite the constant part of the DMA-Ctrl structures every time used.
 	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
 	(pDmaTd+0)->src = 1;
@@ -264,6 +264,11 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	//(pDmaTd+3)->ctrl = 0x0000900A;
 #endif
 
+
+	// TODO: the variants with re-adjusting source and destination 'HW Address' vs 'Channel feature select' should be refactored
+	//	( in its own _SGTransfer() routine !???) to avoid this 'mis-alignment' of block 1-2 if only one is used.....
+	//  also Test this to work properly with second SSP channel!!!
+	//
 	if (newJob->txSize > 0) {
 		(pDmaTd+1)->src = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);
 		(pDmaTd+3)->dst = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);

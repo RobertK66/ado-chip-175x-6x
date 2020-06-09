@@ -218,7 +218,7 @@ void trb_performance_char(test_result_t *res) {
 
 	printf("Push/pop test (char): %d/%d us.\n", time1us, time2us);
 
-	if (time2us > 30100) {
+	if (time2us > 30300) {
 		testFailed(res, "Ringbuffer using char (single pushPop) is to slow!");
 		return;
 	}
@@ -273,7 +273,7 @@ void trb_performance_ptrs(test_result_t *res) {
 
 	printf("Push/pop test (ptr): %d/%d us.\n", time1us, time2us);
 
-	if (time2us > 32400) {
+	if (time2us > 32900) {
 		testFailed(res, "Ringbuffer using ptr (single pushPop) is to slow!");
 		return;
 	}

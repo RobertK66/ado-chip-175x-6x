@@ -15,6 +15,7 @@
 
 #include <ado_libmain.h>
 #include <ado_test.h>
+#include <ado_sspdma.h>
 #include <stopwatch.h>
 #include <mod/cli.h>
 
@@ -26,7 +27,7 @@
 #include "tests/test_crc.h"
 
 #include "mod/ado_sdcard.h"
-#include "mod/ado_sspdma.h"
+
 
 
 // collect all module tests together into one test suite.

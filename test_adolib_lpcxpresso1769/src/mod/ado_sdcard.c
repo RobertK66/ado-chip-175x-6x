@@ -306,6 +306,7 @@ void SdcMain(void) {
 			if (sdcCmdResponse[0] == 0x00) {
 				// still busy !?
 				// Read 1 byte to check for busy token
+				// TODO: some mainloop wait here ....
 				sdcCmdPending = true;
 				printf("o");
 				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
@@ -496,6 +497,6 @@ void SdcEditCmd(int argc, char *argv[]) {
 		}
 	}
 	printf("Block modified: \n");
-	sdcWaitLoops = 3000;
+	sdcWaitLoops = 1000;
 	sdcDumpLines = 16;
 }
