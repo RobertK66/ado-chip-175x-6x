@@ -33,21 +33,21 @@ const char adoBuild[] =  { __DATE__[7], __DATE__[8], __DATE__[9], __DATE__[10], 
 
 // Check for prcompiler settings and generate Compiler feature string in ROM variable
 #ifdef CR_INTEGER_PRINTF
-	#define ADO_CC_PRINTF_FLOAT 'f'
+    #define ADO_CC_PRINTF_FLOAT 'f'
 #else
-	#define ADO_CC_PRINTF_FLOAT 'F'
+    #define ADO_CC_PRINTF_FLOAT 'F'
 #endif
 
 #ifdef CR_PRINTF_CHAR
-	#define ADO_CC_PRINTF_CHAR 'C'
+    #define ADO_CC_PRINTF_CHAR 'C'
 #else
-	#define ADO_CC_PRINTF_CHAR 'c'
+    #define ADO_CC_PRINTF_CHAR 'c'
 #endif
 
 #ifdef DEBUG
-	#define ADO_CC_DEBUG 'D'
+    #define ADO_CC_DEBUG 'D'
 #else
-	#define ADO_CC_DEBUG 'd'
+    #define ADO_CC_DEBUG 'd'
 #endif
 
 const char adoCompConf[] =  { ADO_CC_DEBUG, ADO_CC_PRINTF_FLOAT, ADO_CC_PRINTF_CHAR, 0 };
@@ -55,21 +55,21 @@ const char adoCompConf[] =  { ADO_CC_DEBUG, ADO_CC_PRINTF_FLOAT, ADO_CC_PRINTF_C
 char adoVersion[16];
 
 char* adoGetVersion(void) {
-	int used = snprintf(adoVersion, sizeof adoVersion, "%d.%d.%d", ADO_VERSION_MAJOR, ADO_VERSION_MINOR, ADO_VERSION_PATCH);
+    int used = snprintf(adoVersion, sizeof adoVersion, "%d.%d.%d", ADO_VERSION_MAJOR, ADO_VERSION_MINOR, ADO_VERSION_PATCH);
 
-#ifdef 	ADO_VERSION_RELEASE
-	strncpy(&adoVersion[used], "-", 1);
-	strncpy(&adoVersion[used+1], ADO_VERSION_RELEASE, sizeof ADO_VERSION_RELEASE);
+#ifdef     ADO_VERSION_RELEASE
+    strncpy(&adoVersion[used], "-", 1);
+    strncpy(&adoVersion[used+1], ADO_VERSION_RELEASE, sizeof ADO_VERSION_RELEASE);
 #endif
 
-	return adoVersion;
+    return adoVersion;
 }
 
 const char* adoGetBuild(void) {
-	return adoBuild;
+    return adoBuild;
 }
 
 const char* adoGetCompileConf() {
-	return adoCompConf;
+    return adoCompConf;
 }
 
