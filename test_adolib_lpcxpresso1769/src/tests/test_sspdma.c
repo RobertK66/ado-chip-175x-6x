@@ -75,4 +75,5 @@ void ssp_test1(test_result_t *res) {
         return;
     }
     testPassed(res);
+    txDummy = 0xFF;     // !!!!
 }
