@@ -195,13 +195,15 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId,
 
 
 void DMA_IRQHandler(void) {
-	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);
+	// Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);      // Debug IO
 	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
 	if ( tcs & (1UL<<ADO_SSP_RXDMACHANNEL0) ) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
 		// This was SSP0 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[0].job[ado_sspjobs[0].current_job];
-		job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
+		//if (job->ADO_SSP_JobFinished_IRQCallback != 0) {      // safety or performance? which to choose here?
+		    job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
+		//}
 
 		ado_sspjobs[0].jobs_pending--;
 		if (ado_sspjobs[0].jobs_pending > 0) {
@@ -217,8 +219,9 @@ void DMA_IRQHandler(void) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL1);
 		// This was SSP1 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[1].job[ado_sspjobs[1].current_job];
-		job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
-
+		//if (job->ADO_SSP_JobFinished_IRQCallback != 0) {      // safety or performance? which to choose here?
+		    job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
+		//}
 		ado_sspjobs[1].jobs_pending--;
 		if (ado_sspjobs[1].jobs_pending > 0) {
 			// Continue with nextJob
@@ -229,7 +232,7 @@ void DMA_IRQHandler(void) {
 			ADO_SSP_InitiateDMA(ADO_SSP1,&ado_sspjobs[1].job[ado_sspjobs[1].current_job]);
 		}
 	}
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+	// Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);     // Debug IO
 }
 
 // __attribute__((always_inline))		// This gives another 0,5% Performance improvement but it needs 150..200 bytes more prog memory!
@@ -266,7 +269,9 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 
 
 	// TODO: the variants with re-adjusting source and destination 'HW Address' vs 'Channel feature select' should be refactored
-	//	( in its own _SGTransfer() routine !???) to avoid this 'mis-alignment' of block 1-2 if only one is used.....
+	//	( in its own _SGTransfer() routine !???) to avoid this 'mis-alignment' of block 1-2 if only one is used. Also performance should improve
+	//  with maybe less function calls needed to start it up.....
+	//
 	//  also Test this to work properly with second SSP channel!!!
 	//
 	if (newJob->txSize > 0) {

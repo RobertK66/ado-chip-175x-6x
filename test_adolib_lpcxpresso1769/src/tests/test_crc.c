@@ -7,12 +7,6 @@
 
 #include "test_crc.h"
 
-#include <chip.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <ado_test.h>
 #include <ado_crc.h>
 
 void tcrc_test1(test_result_t *res) {

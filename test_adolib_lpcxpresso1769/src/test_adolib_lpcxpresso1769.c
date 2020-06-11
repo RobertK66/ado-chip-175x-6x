@@ -25,6 +25,7 @@
 #include "tests/test_ringbuffer.h"
 #include "tests/test_systemconfigs.h"
 #include "tests/test_crc.h"
+#include "tests/test_sspdma.h"
 
 #include "mod/ado_sdcard.h"
 
@@ -34,7 +35,8 @@
 static const test_t moduleTests[] = {
    trbTestSuite,
    sysTestSuite,
-   tcrcTestSuite
+   tcrcTestSuite,
+   sspTestSuite
 };
 static const test_t moduleTestSuite = TEST_SUITE("main", moduleTests);
 
