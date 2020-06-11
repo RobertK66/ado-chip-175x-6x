@@ -33,7 +33,7 @@ typedef enum ado_sspstatus_e
 
 
 
-void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate);
+void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate, CHIP_SSP_CLOCK_MODE_T clockMode);
 void ADO_SSP_AddJob( uint32_t 	context,
 					 ado_sspid_t sspId,
 					 uint8_t     *txData,

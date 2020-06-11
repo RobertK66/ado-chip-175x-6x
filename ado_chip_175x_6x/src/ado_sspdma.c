@@ -16,7 +16,8 @@
 								// This costs ca. 3,6% performance with massive multi-job read/writes.
 
 // Inline Block to clear SSP Rx Buffer.
-#define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
+//#define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
+#define ADO_SSP_DUMP_RX(device) { while ((device->SR & SSP_STAT_RNE) != 0) { rxDummy = device->DR; } }
 
 
 // Following constants hold the Configuration data for both SSPx interfaces. idx=0 -> SSP0 idx=1 ->SSP1
@@ -81,15 +82,15 @@ uint8_t 		txDummy = 0xFF;
 void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob);
 
 // Init for one SSP bus.
-void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
+void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate, CHIP_SSP_CLOCK_MODE_T clockMode) {
 	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
 	
 	Chip_Clock_EnablePeriphClock(ADO_SSP_SysCtlClock[sspId]);		
-	Chip_Clock_SetPCLKDiv(ADO_SSP_SysCtlClock[sspId], SYSCTL_CLKDIV_1);					// No additional prescaler used.
-	Chip_SSP_Set_Mode(pSSP, SSP_MODE_MASTER);											// SSP is Master
-	Chip_SSP_SetFormat(pSSP, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);	// SPI Mode with 8 bit and 'mode1' SPI: this makes CS pulses per Byte (on native SSP SSL Port).
-																						// 		( SSP_CLOCK_CPHA0_CPOL0 'mode3' would keep SSL active for a whole job transfer. )
-	Chip_SSP_SetBitRate(pSSP, bitRate);					// This calculates settings with a near fit. Actual bitrate is calculated as ....
+	Chip_Clock_SetPCLKDiv(ADO_SSP_SysCtlClock[sspId], SYSCTL_CLKDIV_1);		// No additional prescaler used.
+	Chip_SSP_Set_Mode(pSSP, SSP_MODE_MASTER);								// SSP is Master
+	Chip_SSP_SetFormat(pSSP, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, clockMode);	// SPI Mode with 8 bit  SSP_CLOCK_CPHA0_CPOL0 'mode0' this makes CS pulses per Byte (on native SSP SSL Port).
+																			// 		                SSP_CLOCK_CPHA1_CPOL1 'mode3' keeps CS/SSL active for the whole job transfer. (this is 10% faster!)
+	Chip_SSP_SetBitRate(pSSP, bitRate);				// This calculates settings with a near fit. Actual bitrate is calculated as ....
 	
 //	Chip_SSP_SetClockRate(pSSP, 5, 2);
 //	Chip_SSP_SetClockRate(pSSP, 4, 2);				// SSPClk: 9.6Mhz   	( With 96Mhz SystemCoreClock -> SSP Clk = 48Mhz / (4+1) )
@@ -112,30 +113,30 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 	ado_sspjobs[sspId].rxDmaChannel = ADO_SSP_RxDmaChannel[sspId];
 	ado_sspjobs[sspId].txDmaChannel = ADO_SSP_TxDmaChannel[sspId];
 
-	// Initialize the DMA Ctrl structures with empty src/dest addresses.
+	// Initialize the DMA Ctrl structures with empty src/dest addresses and len.
 	// Receiver Channel - Setup as Scatter Transfer with 2 blocks.
 	// First bytes are TX only. We write all Rx to a dummy Byte.
-	ado_sspjobs[sspId].dmaTd[0].src = 1;
+	ado_sspjobs[sspId].dmaTd[0].src = ADO_SSP_GPDMA_CONN_RX[sspId];     // The GPDMA_CONN_SSPn_Rx where n is 0/1 indicating used io source
 	ado_sspjobs[sspId].dmaTd[0].dst = (uint32_t)&rxDummy;
 	ado_sspjobs[sspId].dmaTd[0].lli = (uint32_t)(&ado_sspjobs[sspId].dmaTd[1]);
 	ado_sspjobs[sspId].dmaTd[0].ctrl = 0x00009000;
 
 	// Then the real receive starts to write into rxData
-	ado_sspjobs[sspId].dmaTd[1].src = (uint32_t)&(pSSP->DR);
-	ado_sspjobs[sspId].dmaTd[1].dst = 0;					// This will be filled by job entry later.
+	ado_sspjobs[sspId].dmaTd[1].src = (uint32_t)&(pSSP->DR);    // Here the io-address of the used SSPn is needed directly
+	ado_sspjobs[sspId].dmaTd[1].dst = 0;					    // This (destination address in RAM) will be filled by job entry later.
 	ado_sspjobs[sspId].dmaTd[1].lli = 0;
 	ado_sspjobs[sspId].dmaTd[1].ctrl = 0x88009000;
 
 	// Transmit Channel - 2 Blocks
 	// first n byte are the real TX
-	ado_sspjobs[sspId].dmaTd[2].src = 0;					// This will be filled by job entry later.
-	ado_sspjobs[sspId].dmaTd[2].dst = 0;
+	ado_sspjobs[sspId].dmaTd[2].src = 0;					            // This (source address from RAM) will be filled by job entry later.
+	ado_sspjobs[sspId].dmaTd[2].dst = ADO_SSP_GPDMA_CONN_TX[sspId];     // Here the GPDMA_CONN_SSPn_Tx for n=0/1 is needed to give the DMA io target.
 	ado_sspjobs[sspId].dmaTd[2].lli = (uint32_t)(&ado_sspjobs[sspId].dmaTd[3]);
 	ado_sspjobs[sspId].dmaTd[2].ctrl = 0x04009000;
 
 	// Then the tx channel only sends dummy 0xFF bytes in order to receive all rx bytes
 	ado_sspjobs[sspId].dmaTd[3].src = (uint32_t)&txDummy;
-	ado_sspjobs[sspId].dmaTd[3].dst = (uint32_t)&(pSSP->DR);
+	ado_sspjobs[sspId].dmaTd[3].dst = (uint32_t)&(pSSP->DR);    // Here the io target needs to be given as real io-address.
 	ado_sspjobs[sspId].dmaTd[3].lli = 0;
 	ado_sspjobs[sspId].dmaTd[3].ctrl = 0x00009000;
 
@@ -144,7 +145,10 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate) {
 }
 
 
-void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_t *rxData, uint16_t bytes_to_send, uint16_t bytes_to_read, AdoSSP_FinishedHandler(finish), AdoSSP_ActivateHandler(activate)){
+void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId,
+                    uint8_t *txData, uint8_t *rxData,
+                    uint16_t txLen, uint16_t rxLen,
+                    AdoSSP_FinishedHandler(finish), AdoSSP_ActivateHandler(activate)){
 	bool startIt = false;
 	ado_sspjobs_t *jobs = &ado_sspjobs[sspId];
 
@@ -165,8 +169,8 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId, uint8_t *txData, uint8_
 	ado_sspjob_t *newJob = &(jobs->job[newJobIdx]);
 	newJob->txData = txData;
 	newJob->rxData = rxData;
-	newJob->txSize = bytes_to_send;
-	newJob->rxSize = bytes_to_read;
+	newJob->txSize = txLen & 0x0FFF;    // DMA transfer size has 12 bits. Max: 4095‬ bytes
+	newJob->rxSize = rxLen & 0x0FFF;    // DMA transfer size has 12 bits. Max: 4095‬ bytes
 	newJob->context = context;
 	newJob->ADO_SSP_JobFinished_IRQCallback = finish;
 	newJob->ADO_SSP_JobActivated_IRQCallback = activate;
@@ -234,7 +238,7 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 
 	if (newJob->ADO_SSP_JobActivated_IRQCallback != 0) {
 		// This could be used to activate a CS line other than the SSL of the SSP HW Unit.
-		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);			//TODO: 1st Test it, 2nd where is 'Deactivate' called!?
+		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);			//TODO: Test this ...
 	}
 
 	// Adjust the rx/tx addresses and length in prepared dma control structures.
@@ -248,20 +252,16 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 #ifdef ADO_SSPDMA_BITFLIPSAFE												//TODO: re-test this version after all refactorings finished.....
 	// Rewrite the constant part of the DMA-Ctrl structures every time used.
 	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
-	(pDmaTd+0)->src = 1;
+	(pDmaTd+0)->src = ...;
 	(pDmaTd+0)->dst = (uint32_t)&rxDummy;
 	(pDmaTd+0)->lli = (uint32_t)(pDmaTd+1);
-	//(pDmaTd+0)->ctrl = 0x00009006;
 	(pDmaTd+1)->src = (uint32_t)&(pSSP->DR);
 	(pDmaTd+1)->lli = 0;
-	//(pDmaTd+1)->ctrl = 0x8800900A;
-	(pDmaTd+2)->dst = 0;
+	(pDmaTd+2)->dst = ....;
 	(pDmaTd+2)->lli = (uint32_t)(pDmaTd+3);
-	//(pDmaTd+2)->ctrl = 0x04009006;
 	(pDmaTd+3)->src = (uint32_t)&txDummy;
 	(pDmaTd+3)->dst = (uint32_t)&(pSSP->DR);
 	(pDmaTd+3)->lli = 0;
-	//(pDmaTd+3)->ctrl = 0x0000900A;
 #endif
 
 
@@ -276,8 +276,8 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+2), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
 	} else {
 		// TX block is 0, so we start with second DMA Blocks - only rx part of job
-		(pDmaTd+1)->src = 1;
-		(pDmaTd+3)->dst = 0;
+		(pDmaTd+1)->src = ADO_SSP_GPDMA_CONN_RX[sspId];     // The GPDMA_CONN_SSPn_Rx where n is 0/1 indicating used io source;
+		(pDmaTd+3)->dst = ADO_SSP_GPDMA_CONN_TX[sspId];     // Here the GPDMA_CONN_SSPn_Tx for n=0/1 is needed to give the DMA io target.;
 		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+1), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
 		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+3), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
 	}

@@ -14,27 +14,7 @@
 
 #include "ado_sspdma.h"
 
-
 //SD commands, many of these are not used here
-#define GO_IDLE_STATE            0
-#define SEND_OP_COND             1
-#define SEND_IF_COND			 8
-#define SEND_CSD                 9
-#define STOP_TRANSMISSION        12
-#define SEND_STATUS              13
-#define SET_BLOCK_LEN            16
-#define READ_SINGLE_BLOCK        17
-#define READ_MULTIPLE_BLOCKS     18
-#define WRITE_SINGLE_BLOCK       24
-#define WRITE_MULTIPLE_BLOCKS    25
-#define ERASE_BLOCK_START_ADDR   32
-#define ERASE_BLOCK_END_ADDR     33
-#define ERASE_SELECTED_BLOCKS    38
-#define SD_SEND_OP_COND			 41   //ACMD
-#define APP_CMD					 55
-#define READ_OCR				 58
-#define CRC_ON_OFF               59
-
 typedef enum ado_sdc_cmd_e
 {
  ADO_SDC_CMD0_GO_IDLE_STATE   		  =  0,
@@ -56,10 +36,6 @@ typedef enum ado_sdc_cmd_e
  ADO_SDC_CMD58_READ_OCR				  =  58,
  ADO_SDC_CMD59_CRC_ON_OFF 			  =  59
 } ado_sdc_cmd_t;
-
-
-//#define SDC_CS_PORT				0
-//#define SDC_CS_PIN				4
 
 typedef enum ado_sdc_status_e
 {
@@ -131,7 +107,6 @@ void SdcInit(ado_sspid_t bus) {
 }
 
 void SdcMain(void) {
-
 
 	if (!sdcCmdPending) {
 		// This is the sdc state engine reacting to a finished SPI job
@@ -429,6 +404,7 @@ void SdcInitCmd(int argc, char *argv[]) {
 		sspBase = LPC_SSP1;
 	}
 	if (sspBase != 0) {
+	    // Reset mmodule state and initiate the card init sequence
 		sdcType = ADO_SDC_CARD_UNKNOWN;
 		sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
 		SdcSendCommand(ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET, 0);
