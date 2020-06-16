@@ -253,6 +253,7 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	(pDmaTd+3)->ctrl =  0x00009000 | (uint32_t)(newJob->rxSize);
 
 #ifdef ADO_SSPDMA_BITFLIPSAFE												//TODO: re-test this version after all refactorings finished.....
+	txDummy = 0xFF;
 	// Rewrite the constant part of the DMA-Ctrl structures every time used.
 	LPC_SSP_T *pSSP = (LPC_SSP_T *)ADO_SSP_RegBase[sspId];
 	(pDmaTd+0)->src = ...;
