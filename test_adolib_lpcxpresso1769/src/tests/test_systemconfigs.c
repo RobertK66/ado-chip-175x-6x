@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <float.h>
 
 #include "../system.h"
 #include <mod/cli.h>
@@ -73,9 +74,10 @@ void sys_testPrintFNotusingHeap(test_result_t* res){
 		usedheap_before = (uint32_t)__end_of_heap - heapBase;
 	}
 
-	float f = 2.2;
+	double f = 1.0;
+	f += DBL_EPSILON;
 	int i = 55;
-	printf("A test String writing something to the output cons f:%.6f i:%d\n", f, i);
+	printf("A test String writing something to the output cons d:%.16f i:%d\n", f, i);
 
 	// If not used at all __end_of_heap contains 0!
 	if ((uint32_t)__end_of_heap == 0) {

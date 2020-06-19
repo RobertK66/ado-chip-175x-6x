@@ -91,10 +91,30 @@ void listElement(char* name, uint8_t count, uint8_t intend) {
 	printf("%s [%d]\n",name, count);
 }
 
+void read_serial_number(char* str)    //read serial via IAP
+{
+   param_table[0] = 58; //IAP command
+   iap_entry(param_table,result_table);
+
+   if(result_table[0] == 0) //return: CODE SUCCESS
+   {
+      sprintf(str, "%08X-%08X-%08X-%08X",result_table[1],result_table[2],result_table[3],result_table[4]);
+   }
+   else
+   {
+       sprintf(str, "Read Error",result_table[1],result_table[2],result_table[3],result_table[4]);
+   // printf("Serial Number Read Error\n\r");
+   }
+}
+
+
+static char devnr[128];
 void main_showVersionCmd(int argc, char *argv[]) {
 	printf("Lib Version:  %s\n", adoGetVersion());
 	printf("Lib Build:    %s\n",  adoGetBuild());
 	printf("Lib CompConf: %s\n",  adoGetCompileConf());
+	read_serial_number(devnr);
+	printf("LPC1769SerNr: %s\n", devnr);
 }
 
 void main_testCmd(int argc, char *argv[]) {
