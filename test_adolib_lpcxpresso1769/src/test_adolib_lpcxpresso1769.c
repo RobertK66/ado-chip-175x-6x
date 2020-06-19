@@ -91,6 +91,9 @@ void listElement(char* name, uint8_t count, uint8_t intend) {
 	printf("%s [%d]\n",name, count);
 }
 
+
+unsigned param_table[5];
+unsigned result_table[5];
 void read_serial_number(char* str)    //read serial via IAP
 {
    param_table[0] = 58; //IAP command
