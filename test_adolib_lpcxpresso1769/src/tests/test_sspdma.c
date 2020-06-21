@@ -53,6 +53,7 @@ void TestJobFinished(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxDat
 
 void ssp_test1(test_result_t *res) {
     // We use the SSP1 here which has no hardware connected at all in our board.
+    bool testOk = true;
     ADO_SSP_Init(ADO_SSP1, 100000, SSP_CLOCK_MODE3);
 
     // White box test !
@@ -67,13 +68,19 @@ void ssp_test1(test_result_t *res) {
     while (!jobFinished && (waitLoops-- > 1));
     if (waitLoops == 0) {
         testFailed(res, "Job Timeout!");
+        testOk=false;
     }
     waitLoops = 1000000 - waitLoops;
     printf("SSP Test Job w. 100kHz needed. %d waitloops.\n", waitLoops );
-    if (waitLoops > 4000) {
+    if (waitLoops > 5000) {
         testFailed(res, "Job duration too long!");
-        return;
+        testOk=false;
     }
-    testPassed(res);
+    if (testOk){
+        testPassed(res);
+    }
+    //Restore SSP Module
     txDummy = 0xFF;     // !!!!
+    ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
+
 }

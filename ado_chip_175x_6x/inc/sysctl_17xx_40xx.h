@@ -81,8 +81,8 @@ typedef struct {
 	uint32_t RESERVED2[13];
 	__IO uint32_t EMCCLKSEL;				/*!< Offset: 0x100 (R/W)  External Memory Controller Clock Selection Register */
 #endif
-	__IO uint32_t CCLKSEL;					/*!< Offset: 0x104 (R/W)  CPU Clock Selection Register */
-	__IO uint32_t USBCLKSEL;				/*!< Offset: 0x108 (R/W)  USB Clock Selection Register */
+	__IO uint32_t CCLKSEL;					/*!< Offset: 0x104 (R/W)  CPU Clock Configuration Register (holding PLL0 divider)!  */
+	__IO uint32_t USBCLKSEL;				/*!< Offset: 0x108 (R/W)  USB Clock Configuration Register (holding PLL0 divider)!  */
 	__IO uint32_t CLKSRCSEL;				/*!< Offset: 0x10C (R/W)  Clock Source Select Register */
 	__IO uint32_t CANSLEEPCLR;				/*!< Offset: 0x110 (R/W)  CAN Sleep Clear Register */
 	__IO uint32_t CANWAKEFLAGS;				/*!< Offset: 0x114 (R/W)  CAN Wake-up Flags Register */
