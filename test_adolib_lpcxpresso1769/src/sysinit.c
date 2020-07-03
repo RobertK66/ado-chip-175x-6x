@@ -50,13 +50,15 @@ void SystemInit(void) {
 	// Read and keep the reset source.
 	resetSource = LPC_SYSCTL->RSID;
 
+    LpcExpresso1769Init();
+
 	// Switch to XTAL wait for PLL To be locked and set the CPU Core Frequency.
 	Chip_SetupXtalClocking();
 	//Read clock settings and update SystemCoreClock variable (needed only for iap.c module - Common FLASH support functions ...)
 	SystemCoreClockUpdate();
 	
 	// Choose your board here
-	LpcExpresso1769Init();
+	//LpcExpresso1769Init();
 	//PegasusObcInit();
 }
 
@@ -149,7 +151,7 @@ void LpcExpresso1769Init(void) {
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 18);
 	// Test GPIO
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 4, true);
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+	//Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 	// SD card CS output
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 16, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);

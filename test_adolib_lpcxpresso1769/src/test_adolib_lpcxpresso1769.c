@@ -19,6 +19,7 @@
 #include <ado_sspdma.h>
 #include <stopwatch.h>
 #include <mod/cli.h>
+#include <ado_crc.h>
 
 #include "system.h"
 #include "tests/test_cli.h"
@@ -29,7 +30,6 @@
 #include "tests/test_sspdma.h"
 
 #include "mod/ado_sdcard.h"
-
 
 
 // collect all module tests together into one test suite.
@@ -47,12 +47,26 @@ static const test_t moduleTestSuite = TEST_SUITE("main", moduleTests);
 void print_failures(test_failure_t *fp);
 void main_testCmd(int argc, char *argv[]);
 void main_showVersionCmd(int argc, char *argv[]);
+void main_showSysTimeCmd(int argc, char *argv[]);
+void main_setUtcTimeCmd(int argc, char *argv[]);
+
+
+uint32_t GetResetCntFromRTC(void);
+uint32_t GetResetCountFromPersistence(void);
+void IncrementResetCount(void);
+uint32_t GetResetCountFromPersistence(void);
 
 
 int main(void) {
-    // Start the systemTime running on RIT IRQ.
-    TimeInit();
-
+    // Start the systemTime running on RIT IRQ. The offset to start from is dependent on code runtime from reset up to here.
+    uint32_t resetCount = GetResetCntFromRTC();
+    uint32_t startOffsetMs = 10;
+    if (resetCount == 0) {
+        resetCount = GetResetCountFromPersistence();
+        startOffsetMs = 100;     //?? TODO: Measure this value....
+    }
+    TimeInit(startOffsetMs, resetCount);
+    IncrementResetCount();
 
 	// 'special test module'
 	TestCliInit(); // This routine will block, if there was an error. No Cli would be available then....
@@ -63,18 +77,23 @@ int main(void) {
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
+
 	StopWatch_Init1(LPC_TIMER0);
 	ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);			// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
 	                                                            // My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
 	SdcInit(ADO_SSP0);
 
-	// register test command ...
+	// register (test) command(s) ...
 	CliRegisterCommand("test", main_testCmd);
 	CliRegisterCommand("ver", main_showVersionCmd);
+	CliRegisterCommand("time", main_showSysTimeCmd);
+	CliRegisterCommand("setTime", main_setUtcTimeCmd);
 
 	// ... and auto start it for running all test.
 	main_showVersionCmd(0,0);
-	main_testCmd(0,0);
+	//main_testCmd(0,0);
+
+
 
 	while(1) {
 		CliMain();
@@ -114,7 +133,6 @@ void read_serial_number(char* str)    //read serial via IAP
    // printf("Serial Number Read Error\n\r");
    }
 }
-
 
 static char devnr[128];
 void main_showVersionCmd(int argc, char *argv[]) {
@@ -170,4 +188,83 @@ void main_testCmd(int argc, char *argv[]) {
 		red_off();
 		green_on();
 	}
+}
+
+
+uint32_t GetResetCntFromRTC(void) {
+    uint32_t retVal = 0;
+    //uint16_t crc = CRC16_XMODEM((const uint8_t *)LPC_RTC->GPREG, 20);
+    if ((LPC_RTC->GPREG[0] == 0xA5A5A5A5) &&
+        (CRC16_XMODEM((const uint8_t *)LPC_RTC->GPREG, 20) == 0)){
+        retVal = LPC_RTC->GPREG[1];
+    }
+    return retVal;
+}
+
+void SetResetCntToRTC(uint32_t resetCount) {
+    if ((LPC_RTC->GPREG[0] == 0xA5A5A5A5) &&
+        (CRC16_XMODEM((const uint8_t *)LPC_RTC->GPREG, 20) == 0)){
+        LPC_RTC->GPREG[1] = resetCount;
+    } else {
+        /// init the RTC RAM
+        LPC_RTC->GPREG[0] = 0xA5A5A5A5;
+        LPC_RTC->GPREG[1] = resetCount;
+        LPC_RTC->GPREG[2] = 0;
+        LPC_RTC->GPREG[3] = 0;
+        LPC_RTC->GPREG[4] = 0;
+    }
+    uint16_t crc = CRC16_XMODEM((const uint8_t *)LPC_RTC->GPREG, 18);
+    uint8_t p1 = (uint8_t)(crc>>8);
+    uint8_t p2 = (uint8_t)crc;
+    LPC_RTC->GPREG[4] =  ( (((uint32_t)(p1)) << 16) | (((uint32_t)(p2)) << 24) );
+
+}
+
+uint32_t GetResetCountFromPersistence(void) {
+    return 0;
+}
+
+void IncrementResetCount(void) {
+    uint32_t resetCnt = GetResetCntFromRTC() + 1;
+    SetResetCntToRTC(resetCnt);
+}
+
+void main_showSysTimeCmd(int argc, char *argv[]) {
+    ado_tim_systemtime_t time;
+    TimeGetCurrentSystemTime(&time);
+
+    printf("Epoch Nr: %d ", time.epochNumber);
+    if (time.utcOffset.year == 0) {
+            printf("(no UTC sync)\n");
+        } else {
+            printf("(started year:%d ", time.utcOffset.year);
+            printf("doy: %d.%05d)\n", (int)time.utcOffset.dayOfYear,(int)((time.utcOffset.dayOfYear - (int)time.utcOffset.dayOfYear) * 100000));
+        }
+    printf("Epoch Ms: %d\n", time.msAfterStart);
+
+
+
+}
+
+void main_setUtcTimeCmd(int argc, char *argv[]) {
+    RTC_TIME_T t;
+    t.time[RTC_TIMETYPE_YEAR] = 2020;
+    t.time[RTC_TIMETYPE_MONTH] = 7;
+    t.time[RTC_TIMETYPE_DAYOFMONTH] = 26;
+    t.time[RTC_TIMETYPE_DAYOFYEAR] = 31 + 29 + 31 + 30 + 31 + 30 + 26;      // Needed??
+    t.time[RTC_TIMETYPE_DAYOFWEEK] = RTC_DAYOFWEEK_MAX;                     // Needed??
+    t.time[RTC_TIMETYPE_HOUR] = 12;
+    t.time[RTC_TIMETYPE_MINUTE] = 30;
+    t.time[RTC_TIMETYPE_SECOND] = 0;
+    if (argc > 0 ) { t.time[RTC_TIMETYPE_YEAR] = atoi(argv[0]); }
+    if (argc > 1 ) { t.time[RTC_TIMETYPE_MONTH] = atoi(argv[1]); }
+    if (argc > 2 ) { t.time[RTC_TIMETYPE_DAYOFMONTH] = atoi(argv[2]);
+                     t.time[RTC_TIMETYPE_DAYOFYEAR] = 0;    // TODO??
+                     t.time[RTC_TIMETYPE_DAYOFWEEK] = 0;    // TODO??
+                    }
+    if (argc > 3 ) { t.time[RTC_TIMETYPE_HOUR] = atoi(argv[3]); }
+    if (argc > 4 ) { t.time[RTC_TIMETYPE_MINUTE] = atoi(argv[4]); }
+    if (argc > 5 ) { t.time[RTC_TIMETYPE_SECOND] = atoi(argv[5]); }
+
+    TimeSetUtc2(&t);
 }
