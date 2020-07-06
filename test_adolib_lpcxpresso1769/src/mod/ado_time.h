@@ -25,10 +25,10 @@ typedef struct ado_tim_systemtime_s {
 } ado_tim_systemtime_t;
 
 void TimeInit(uint32_t startOffsetMs, uint32_t epochNumber);
-void TimeSetUtc1(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t min, uint8_t sec);
+void TimeSetUtc1(uint16_t year, uint8_t month, uint8_t dayOfMonth, uint8_t hour, uint8_t min, uint8_t sec);
 void TimeSetUtc2(RTC_TIME_T *fullTime);
 ado_timestamp TimeGetCurrentTimestamp();
 void TimeGetCurrentSystemTime(ado_tim_systemtime_t *sysTime);
-void TimeGetUtcTime(RTC_TIME_T *fullTime);
+void TimeGetCurrentUtcTime(RTC_TIME_T *fullTime);
 
 #endif /* MOD_ADO_TIME_H_ */

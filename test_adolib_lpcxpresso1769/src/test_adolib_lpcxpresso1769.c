@@ -94,7 +94,6 @@ int main(void) {
 	//main_testCmd(0,0);
 
 
-
 	while(1) {
 		CliMain();
 		SdcMain();
@@ -233,17 +232,24 @@ void main_showSysTimeCmd(int argc, char *argv[]) {
     ado_tim_systemtime_t time;
     TimeGetCurrentSystemTime(&time);
 
-    printf("Epoch Nr: %d ", time.epochNumber);
+    printf("Epoch #: %d ", time.epochNumber);
     if (time.utcOffset.year == 0) {
             printf("(no UTC sync)\n");
         } else {
-            printf("(started year:%d ", time.utcOffset.year);
-            printf("doy: %d.%05d)\n", (int)time.utcOffset.dayOfYear,(int)((time.utcOffset.dayOfYear - (int)time.utcOffset.dayOfYear) * 100000));
+            printf("(started %d - ", time.utcOffset.year);
+            printf("%d.%05d)\n", (int)time.utcOffset.dayOfYear,(int)((time.utcOffset.dayOfYear - (int)time.utcOffset.dayOfYear) * 100000));
         }
-    printf("Epoch Ms: %d\n", time.msAfterStart);
+    printf("Epoch ms: %d\n", time.msAfterStart);
 
-
-
+    RTC_TIME_T t;
+    TimeGetCurrentUtcTime(&t);
+    printf("Utc: %02d.%02d.%04d %02d:%02d:%02d\n",
+            t.time[RTC_TIMETYPE_DAYOFMONTH],
+            t.time[RTC_TIMETYPE_MONTH],
+            t.time[RTC_TIMETYPE_YEAR],
+            t.time[RTC_TIMETYPE_HOUR],
+            t.time[RTC_TIMETYPE_MINUTE],
+            t.time[RTC_TIMETYPE_SECOND]);
 }
 
 void main_setUtcTimeCmd(int argc, char *argv[]) {
