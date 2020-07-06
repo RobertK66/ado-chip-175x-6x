@@ -32,24 +32,33 @@
 #include <chip.h>
 #include "system.h"
 
-const uint32_t OscRateIn = 12000000;
-const uint32_t RTCOscRateIn = 32768;
+const uint32_t  OscRateIn = 12000000;       // Here you define the XTAL-freq used on your Board/System. Its expected External by chip.h!
+const uint32_t  RTCOscRateIn = 32768;       // Here you define the RTC-freq used on  your Board/System. Its expected External by chip.h!
+extern uint32_t SystemCoreClock;            // This is also expected external by chip.h and defined in chip_17xx_40xx.c
 
+static uint32_t resetSource = 0x0;
 void LpcExpresso1769Init(void);
 void PegasusObcInit(void);
 
 // Set up and initialize hardware prior to call to main
 void SystemInit(void) {
+    // Set the ARM VectorTableOffsetRegister to our Vector table (at 0x00000000 in flash)
 	unsigned int *pSCB_VTOR = (unsigned int*) 0xE000ED08;
 	extern void *g_pfnVectors;
 	*pSCB_VTOR = (unsigned int) &g_pfnVectors;
-	/* We use XTAL not the default IRC */
-	Chip_SetupXtalClocking();	// Chip_SystemInit();
+
+	// Read and keep the reset source.
+	resetSource = LPC_SYSCTL->RSID;
+
+    LpcExpresso1769Init();
+
+	// Switch to XTAL wait for PLL To be locked and set the CPU Core Frequency.
+	Chip_SetupXtalClocking();
 	//Read clock settings and update SystemCoreClock variable (needed only for iap.c module - Common FLASH support functions ...)
 	SystemCoreClockUpdate();
 	
 	// Choose your board here
-	LpcExpresso1769Init();
+	//LpcExpresso1769Init();
 	//PegasusObcInit();
 }
 
@@ -142,7 +151,7 @@ void LpcExpresso1769Init(void) {
 	Chip_IOCON_DisableOD(LPC_IOCON, 0, 18);
 	// Test GPIO
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 4, true);
-	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
+	//Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);
 	// SD card CS output
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 16, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);
