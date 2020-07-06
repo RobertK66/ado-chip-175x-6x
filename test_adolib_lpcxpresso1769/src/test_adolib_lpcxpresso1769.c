@@ -14,7 +14,7 @@
 #include <stdlib.h>
 
 #include <ado_libmain.h>
-#include "mod/ado_time.h"
+#include <ado_time.h>
 #include <ado_test.h>
 #include <ado_sspdma.h>
 #include <stopwatch.h>
