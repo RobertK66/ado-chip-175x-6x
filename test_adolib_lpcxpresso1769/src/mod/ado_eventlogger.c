@@ -7,21 +7,34 @@
 
 #include "ado_eventlogger.h"
 
+#include <stdio.h>
 
-typedef struct ado_event_s {
-    uint32_t      timestamp;    // This always represents ms after reset! If the event gets persisted additional info is needed (e.g. ResetCounter and/or UTCOffset)!
-                                // If resetCounter is (persisted) accurate, then all events and their exact sequence are uniquely identifiable.
-                                // If there exists a valid UTCOffset to a specific Reset Counter all events of this 'Reset-epoch' can be assigned to an exact UTC-timestamp
-                                // The valid time between 2 resets without overrun occurring in eventlogger time stamps is approx. 49,7 days. So your system should have some
-                                // means to reset at least all 49 days, or you have to manually increase the resetCounter and set a new UTCOffset.
-    ado_event_nr_t  eventNr;
-    uint16_t      eventDataSize;
-    uint8_t       *eventData;
-}  __attribute__((packed))  ado_event_t;
+// Default struct with initializer for correct event nr and datasize - located in ROM area
+const struct ado_event_reset_s ado_event_reset_default = { {0, ADO_EVENT_SYSRESET, (sizeof(ado_event_reset_t) - sizeof(ado_event_t))}, 0 };
 
+// internal / local  module events
+struct ado_event_loggercreated_s {
+    ado_event_t   baseEvent;
+};
+typedef struct ado_event_loggercreated_s ado_event_loggercreated_t;
+const struct ado_event_loggercreated_s ado_event_loggercreated_default = { {0, ADO_EVENT_LOGGER_CREATED,sizeof(ado_event_loggercreated_t) - sizeof(ado_event_t) }};
 
-void LogEvent(ado_event_nr_t eventNr, uint16_t dataSize, uint8_t *data) {
-
-
-
+void LogEvent(ado_event_t *event) {
+    printf("Event %d: time: %d data size: %d\n", event->eventNr, event->timestamp, event->eventDataSize);
+    if (event->eventDataSize > 0) {
+        char *ptr = ((char*)event);
+        ptr += sizeof(ado_event_t);
+        printf("     Data:");
+        for (int i=0; i< event->eventDataSize; i++) {
+            printf(" %02X", *(ptr++));
+        }
+        printf("\n");
+    }
 }
+
+ado_event_nr LogInitEventLogger() {
+    ado_event_loggercreated_t createdEvent = ado_event_loggercreated_default;
+    LogUsrEvent(&createdEvent);
+    return ADO_EVENT_USERBASE;
+}
+
