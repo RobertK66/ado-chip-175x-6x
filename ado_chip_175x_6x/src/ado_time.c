@@ -108,4 +108,6 @@ juliandayfraction TimeGetCurrentDayOfYear() {
     return currentTime;
 }
 
-
+ado_timestamp TimeGetCurrentTimestamp() {
+    return adoSystemTime.msAfterStart;
+}

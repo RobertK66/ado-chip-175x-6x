@@ -15,6 +15,9 @@
 // Event numbers are 16 bit
 typedef uint16_t ado_event_nr;
 
+// Use this macro to avoid warnings without explicit cast of the user event.
+#define LogUsrEvent(e) LogEvent((ado_event_t *)e)
+
 typedef enum ado_sys_event_e {
     // Events without Data
     ADO_EVENT_LOGGER_CREATED = 1,
@@ -33,7 +36,7 @@ typedef enum ado_sys_event_e {
 } ado_sys_event_t;
 
 
-// This is only the 'header of each concrete event. if data is available it follows directgly as struct after this struct....
+// This is only the 'header of each concrete event. if data is available it follows directly as struct after this struct in memory.
 typedef struct ado_event_s {
     ado_timestamp timestamp;    // This always represents ms after reset! If the event gets persisted additional info is needed (e.g. ResetCounter and/or UTCOffset)!
                                 // If resetCounter is (persisted) accurate, then all events and their exact sequence are uniquely identifiable.
@@ -50,9 +53,8 @@ extern const struct ado_event_reset_s {
 } ado_event_reset_default;
 typedef struct ado_event_reset_s ado_event_reset_t;
 
-ado_event_nr LogInitEventLogger(void);                   // Returns the base EventNr For user events
+ado_event_nr LogInitEventLogger(void);     // Returns the base EventNr For user events.
 void LogEvent(ado_event_t *event);
 
-#define LogUsrEvent(e) LogEvent((ado_event_t *)e)
 
 #endif /* MOD_ADO_EVENTLOGGER_H_ */
