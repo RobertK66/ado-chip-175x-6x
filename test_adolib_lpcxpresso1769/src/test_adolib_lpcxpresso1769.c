@@ -99,6 +99,7 @@ int main(void) {
 	while(1) {
 		CliMain();
 		SdcMain();
+		LogMain();
 	}
 
 }

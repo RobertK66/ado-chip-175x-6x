@@ -53,7 +53,16 @@ extern const struct ado_event_reset_s {
 } ado_event_reset_default;
 typedef struct ado_event_reset_s ado_event_reset_t;
 
+extern const struct ado_event_logmessage_s {
+    ado_event_t   baseEvent;
+    char          message[16];                      // TODO: allow Events with data Pointer and copy the content iso struct content......
+} ado_event_logmessage_default;
+typedef struct ado_event_logmessage_s ado_event_logmessage_t;
+
+
 ado_event_nr LogInitEventLogger(void);     // Returns the base EventNr For user events.
+void LogMain(void);
+
 void LogEvent(ado_event_t *event);
 
 
