@@ -535,7 +535,7 @@ void SdcInitCmd(int argc, char *argv[]) {
 	LPC_SSP_T *sspBase = 0;
 	if (sdcBusNr == ADO_SSP0) {
 		sspBase = LPC_SSP0;
-	} else if  (sdcBusNr == ADO_SSP0) {
+	} else if  (sdcBusNr == ADO_SSP1) {
 		sspBase = LPC_SSP1;
 	}
 	if (sspBase != 0) {
