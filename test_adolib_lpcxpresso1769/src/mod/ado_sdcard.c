@@ -164,6 +164,27 @@ static uint8_t 			sdcEditBlock[512];
 static ado_sdc_cardtype_t sdcType = ADO_SDC_CARD_UNKNOWN;
 
 
+void ActivateCS(uint32_t context) {
+   if (sdcBusNr == ADO_SSP0) {
+       // 0-16
+       Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 16);
+   } else if  (sdcBusNr == ADO_SSP1) {
+       // 0-6
+       Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 6);
+   }
+}
+
+void DeActivateCS() {
+    if (sdcBusNr == ADO_SSP0) {
+       // 0-16
+       Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);
+    } else if  (sdcBusNr == ADO_SSP1) {
+       // 0-6
+        Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 6);
+   }
+}
+
+
 void SdcInit(ado_sspid_t bus) {
 	sdcBusNr = bus;
 
@@ -275,7 +296,7 @@ void SdcMain(void) {
 			if ((sdcCmdResponse[1] == 0x00) || (sdcCmdResponse[2] == 0x00))  {
 				// Lets wait for the start data token.
 				sdcCmdPending = true;
-				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBWAITDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBWAITDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
 			} else {
 				printf("Error %02X %02X with read block command\n",sdcCmdResponse[1], sdcCmdResponse[2] );
 				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
@@ -286,7 +307,7 @@ void SdcMain(void) {
 			if (sdcCmdResponse[0] == 0xFE) {
 				// Now we can read all data bytes including 2byte CRC + 1 byte over-read as always to get the shift register in the card emptied....
 				sdcCmdPending = true;
-				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBDATA, sdcBusNr, sdcCmdData, sdcRwData, 0 , 515, DMAFinishedIRQ, 0);
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBDATA, sdcBusNr, sdcCmdData, sdcRwData, 0 , 515, DMAFinishedIRQ, ActivateCS);
 			} else {
 				// Wait some mainloops before asking for data token again.
 				sdcStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA2;
@@ -300,7 +321,7 @@ void SdcMain(void) {
 				if (sdcWaitLoops == 0) {
 					// Read 1 byte to check for data token
 					sdcCmdPending = true;
-					ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBWAITDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+					ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_READ_SBWAITDATA, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
 				}
 			}
 			break;
@@ -326,7 +347,7 @@ void SdcMain(void) {
 				// Now we can write all data bytes including 1 Start token and 2byte CRC. We expect 1 byte data response token....
 				sdcCmdPending = true;
 				printf("\nw");
-				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_SBDATA, sdcBusNr, sdcRwData, sdcCmdResponse, 515 , 3, DMAFinishedIRQ, 0);
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_SBDATA, sdcBusNr, sdcRwData, sdcCmdResponse, 515 , 3, DMAFinishedIRQ, ActivateCS);
 			} else {
 				printf("Error %02X %02X with read block command\n",sdcCmdResponse[1], sdcCmdResponse[2] );
 				sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
@@ -338,7 +359,7 @@ void SdcMain(void) {
 				// Data was accepted. now we wait until busy token is off again....
 				// Read 1 byte to check for busy token
 				sdcCmdPending = true;
-				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
 				printf("5");
 			} else {
 				printf("Error %02X %02X with write data block\n", sdcCmdResponse[0], sdcCmdResponse[1] );
@@ -353,7 +374,7 @@ void SdcMain(void) {
 				// TODO: some mainloop wait here ....
 				sdcCmdPending = true;
 				printf("o");
-				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ, 0);
+				ADO_SSP_AddJob(ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT, sdcBusNr, sdcCmdData, sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
 			} else {
 				// busy is off now. Lets Check Status
 				// Send CMD13
@@ -462,7 +483,11 @@ void SdcMain(void) {
 	}
 }
 
+
+
+
 void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) {
+    DeActivateCS();
 	if (jobStatus == ADO_SSP_JOBDONE) {
 		sdcStatus = context;
 	} else {
@@ -504,7 +529,7 @@ void SdcSendCommand(ado_sdc_cmd_t cmd, uint32_t jobContext, uint32_t arg) {
 	}
 
 	sdcCmdPending = true;
-	ADO_SSP_AddJob(jobContext, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , responseSize, DMAFinishedIRQ, 0);
+	ADO_SSP_AddJob(jobContext, sdcBusNr, sdcCmdData, sdcCmdResponse, 6 , responseSize, DMAFinishedIRQ, ActivateCS);
 }
 
 

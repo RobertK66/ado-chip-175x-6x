@@ -85,21 +85,23 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
 
 	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
-	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recommended' SSL for SSP0
+	//{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL - CS  	 */ // J2-13    the 'recommended' SSL/CS for SSP0
+	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC0 }, /* SSL - CS       */ // J2-13    the 'recommended' SSL/CS for SSP0 used as GPIO - CS has to be controlled by SW
 	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
 	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
 
 	{ 0, 7, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 	*/  // J2-7	SSP1
-	{ 0, 6, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 	*/  // J2-8 SSP1
+	//{ 0, 6, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 	*/  // J2-8 SSP1    SSL/CS controlled by SSP-HW function
+    { 0, 6, IOCON_MODE_INACT | IOCON_FUNC0 }, /* SSL            */  // J2-8 SSP1    SSL/CS controlled by SW.
 	{ 0, 8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 	 	*/	// J2-6	SSP1
 	{ 0, 9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 	*/	// J2-5	SSP1
 
-	{ 0, 23, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MRAM CS  SSP1-CS1 	*/ // J2-15
-	{ 0, 24, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MRAM CS  SSP1-CS2		*/ // J2-16
-	{ 0, 25, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MRAM CS  SSP1-CS3		*/ // J2-17
-	{ 0, 26, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MRAM CS  SSP0-CS1		*/ // J2-18
-	{ 1, 30, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MRAM CS  SSP0-CS2		*/ // J2-19
-	{ 1, 31, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MRAM CS  SSP0-CS3		*/ // J2-20
+	{ 0, 23, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS1 	*/ // J2-15
+	{ 0, 24, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS2		*/ // J2-16
+	{ 0, 25, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS3		*/ // J2-17
+	{ 0, 26, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS1		*/ // J2-18
+	{ 1, 30, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS2		*/ // J2-19
+	{ 1, 31, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS3		*/ // J2-20
 
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
@@ -168,6 +170,8 @@ void LpcExpresso1769Init(void) {
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 16, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);
 
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 6, true);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 6);
 
 //    Chip_SPI_Init(LPC_SPI); 		// All default values as above, Bitrate is set to 4000000 with this!
 //	Chip_SPI_Int_Enable(LPC_SPI);

@@ -34,6 +34,25 @@ typedef enum ado_sspstatus_e
 
 
 void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate, CHIP_SSP_CLOCK_MODE_T clockMode);
+
+/**
+ * @brief Adds a job to the queue of the SSPx bus.
+ *
+ * @param context       : free optional uint32 value to be used by caller to get any value/reference
+ *                        into the callback.
+ * @param sspId         : SSP bus to be used:
+ *                          - ADO_SSP0
+ *                          - ADO_SSP1
+ * @param txData        : pointer to data for first (TX) part of ssp transmission
+ * @param rxData        : pointer to data for second (RX) part of ssp transmission
+ * @param bytes_to_send : length of first transmission part
+ * @param bytes_to_read : length of second transmission part
+ * @param AdoSSP_FinishedHandler(finished):
+ *                        callback used when the job has finished completely.
+ * @param AdoSSP_ActivateHandler(activate):
+ *                        callback used before and after job execution is triggered.
+ *                        Use this to control a specific CS-line if needed.
+ */
 void ADO_SSP_AddJob( uint32_t 	context,
 					 ado_sspid_t sspId,
 					 uint8_t     *txData,
