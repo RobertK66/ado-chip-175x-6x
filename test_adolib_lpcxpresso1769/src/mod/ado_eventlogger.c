@@ -42,6 +42,10 @@ static uint16_t AdoEventsBuffered = 0;
 static uint8_t *AdoBufferPtr = AdoEventMemory[false];
 static ado_timestamp nextSaveTime;
 
+static uint16_t eventsToStore = 0;
+static bool storeActive = false;
+
+
 void LogEvent(ado_event_t *event) {
     event->timestamp = TimeGetCurrentTimestamp();
 
@@ -73,20 +77,32 @@ ado_event_nr LogInitEventLogger() {
     return ADO_EVENT_USERBASE;
 }
 
+
+void EventStored(void) {
+    storeActive = false;
+    eventsToStore--;
+}
+
+void SaveEventToMemAsync(ado_event_t *event, void EventStoredCallback(void)){
+
+}
+
 void LogMain(void) {
     if (nextSaveTime < TimeGetCurrentTimestamp()) {
         nextSaveTime = TimeGetCurrentTimestamp() + ADO_EVENT_SAVE_INTERVALL_MS;
-//        LogPersistRAMToMemory();
+        if (eventsToStore > 0) {
+            printf("Buffer Swap prohibited by Storage not being ready!");
+            return;
+        }
         AdoBufferSwapped = !AdoBufferSwapped;
+        eventsToStore = AdoEventsBuffered;
         AdoEventsBuffered = 0;
         AdoBufferPtr = AdoEventMemory[AdoBufferSwapped];
     }
+    if ((eventsToStore > 0) && !storeActive) {
+        SaveEventToMemAsync(AdoBufferedEvent[!AdoBufferSwapped][eventsToStore], EventStored);
+    }
 }
-
-//void LogPersistRAMToMemory() {
-//
-//}
-
 
 void LogListEventsCmd(int argc, char *argv[]) {
     printf("Events stored: %d Memory free: %d bytes.\n", AdoEventsBuffered, ADO_EVENT_BUFFER_BYTES - (AdoBufferPtr - AdoEventMemory[AdoBufferSwapped]));
