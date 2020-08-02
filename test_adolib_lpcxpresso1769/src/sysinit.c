@@ -173,6 +173,20 @@ void LpcExpresso1769Init(void) {
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 6, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 6);
 
+    Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 23, true);
+    Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 23);
+    Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 24, true);
+    Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 24);
+    Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 25, true);
+    Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 25);
+    Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 26, true);
+    Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 26);
+    Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 30, true);
+     Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 30);
+     Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 31, true);
+      Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 31);
+
+
 //    Chip_SPI_Init(LPC_SPI); 		// All default values as above, Bitrate is set to 4000000 with this!
 //	Chip_SPI_Int_Enable(LPC_SPI);
 //	//NVIC_SetPriority(SPI_IRQn, 5);
