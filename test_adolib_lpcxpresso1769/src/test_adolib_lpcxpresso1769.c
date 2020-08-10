@@ -55,6 +55,53 @@ uint32_t GetResetCntFromRTC(void);
 uint32_t GetResetCountFromPersistence(void);
 void IncrementResetCount(void);
 
+// SSP0 Chips
+#define MRAM0_CS_PORT   0
+#define MRAM0_CS_PIN   26
+#define MRAM1_CS_PORT   1
+#define MRAM1_CS_PIN   30
+#define MRAM2_CS_PORT   1
+#define MRAM2_CS_PIN   31
+
+// SSP1 Chips
+#define MRAM3_CS_PORT   0
+#define MRAM3_CS_PIN   23
+#define MRAM4_CS_PORT   0
+#define MRAM4_CS_PIN   24
+#define MRAM5_CS_PORT   0
+#define MRAM5_CS_PIN   25
+
+
+void CsMram0(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, MRAM0_CS_PORT, MRAM0_CS_PIN, !select);
+
+}
+
+void CsMram1(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, MRAM1_CS_PORT, MRAM1_CS_PIN, !select);
+
+}
+
+void CsMram2(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, MRAM2_CS_PORT, MRAM2_CS_PIN, !select);
+
+}
+
+void CsMram3(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, MRAM3_CS_PORT, MRAM3_CS_PIN, !select);
+
+}
+
+void CsMram4(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, MRAM4_CS_PORT, MRAM4_CS_PIN, !select);
+
+}
+
+void CsMram5(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, MRAM5_CS_PORT, MRAM5_CS_PIN, !select);
+
+}
+
 int main(void) {
     // Start the systemTime running on RIT IRQ. The offset to start from is dependent on code runtime from reset up to here.
     uint32_t resetCount = GetResetCntFromRTC();
@@ -83,18 +130,20 @@ int main(void) {
 	LogUsrEvent(&event);
 
 	StopWatch_Init1(LPC_TIMER0);
-//	ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);			// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
-//	                                                            // My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
-//	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
-//
-	ADO_SSP_Init(ADO_SSP0, 1000000, SSP_CLOCK_MODE3);          // With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
-	                                                                // My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
-    ADO_SSP_Init(ADO_SSP1, 1000000, SSP_CLOCK_MODE3);
-
+	ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);			// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
+	                                                            // My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
+	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 
 	SdcInit(ADO_SSP1);
 
-	MramInit();
+	MramInit(0,ADO_SSP1, CsMram3);
+    MramInit(1,ADO_SSP1, CsMram4);
+    MramInit(2,ADO_SSP1, CsMram5);
+	MramInit(3,ADO_SSP0, CsMram0);
+    MramInit(4,ADO_SSP0, CsMram1);
+    MramInit(5,ADO_SSP0, CsMram2);
+
+    MramInit(99,ADO_SSP0, CsMram0); // Dummy call to initilaize CLI commands
 
 	// register (test) command(s) ...
 	CliRegisterCommand("test", main_testCmd);

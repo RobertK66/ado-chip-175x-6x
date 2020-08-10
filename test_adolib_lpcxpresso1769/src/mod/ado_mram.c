@@ -13,8 +13,10 @@
 
 #include "ado_mram.h"
 
-#define MRAM_CS_PORT	 1
-#define MRAM_CS_PIN		31
+//#define MRAM_CS_PORT	 1
+//#define MRAM_CS_PIN		31
+
+//#define MRAM_CHIP_CNT       6
 
 //#define MRAM_READ_STATUS 55
 
@@ -29,19 +31,34 @@ typedef enum mram_status_e {
 	MRAM_STAT_ERROR							// TODO: what specific errors are there and what too do now ???? -> reinit SSP ???
 } mram_status_t;
 
+typedef struct mram_chip_s {
+    ado_sspid_t     busNr;              // The SSP bus used for this Chip
+    volatile bool   busyFlag;           // indicates that we wait for an bus job to finish
+    mram_status_t   status;             // The current status of this Chip
+    void (*chipSelectCb)(bool select);  // Callback to Chip Select GPIO
+    void (*ioFinishedCb)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+
+    uint8_t         *ioDataPtr;         // Pointer to calllers original memory
+    uint32_t        ioAdr;              // Callers original address
+    uint32_t        ioLen;              // Callers original IO-LEN
+
+    uint8_t         mramData[MRAM_MAX_WRITE_SIZE + 4];  // Data buffer needs 4 bytes additional to write data.
+    uint8_t         tx[4];              // Command buffer
+    uint8_t         rx[1];              // Rx (Status byte) buffer
+} mram_chip_t;
+
+mram_chip_t MramChipStates[MRAM_CHIP_CNT];
+
 // variables
-volatile bool 	busyFlag;
-mram_status_t 	mramStatus;
-uint8_t			*mramData;
-uint32_t		mramAdr;
-uint32_t		mramLen;
-void (*mramCallback)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+//volatile bool 	busyFlag;
+//mram_status_t 	mramStatus;
+//void (*mramCallback)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 
 
-uint8_t tx[4];
-uint8_t rx[1];
-uint8_t MramReadData[MRAM_MAX_READ_SIZE];
-uint8_t MramWriteData[MRAM_MAX_WRITE_SIZE + 4];
+//uint8_t tx[4];
+uint8_t dummy[1];
+//uint8_t MramReadData[MRAM_MAX_READ_SIZE];
+//uint8_t MramWriteData[MRAM_MAX_WRITE_SIZE + 4];
 
 // prototypes
 void ReadMramCmd(int argc, char *argv[]);
@@ -49,163 +66,140 @@ void WriteMramCmd(int argc, char *argv[]);
 void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 
-
-bool MramChipSelect(bool select) {
-	Chip_GPIO_SetPinState(LPC_GPIO, MRAM_CS_PORT, MRAM_CS_PIN, !select);
-//	if (!select) {
-//		busyFlag = false;
-//	}
-	return true;
-}
-
 //
 // Be careful here! This Callback is sometimes called from IRQ !!!
 // Do not do any complicated logic here!!!
 void MramActivate(uint32_t context){
-    MramChipSelect(true);
+    ((mram_chip_t *)context)->chipSelectCb(true);
 }
-
 
 // Be careful here! This Callback is called from IRQ !!!
 // Do not do any complicated logic here!!!
 void MramJobFinished(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) {
-    MramChipSelect(false);
-    busyFlag = false;
-    if (context == MRAM_STAT_NOT_INITIALIZED) {
-        if ((rx[0] & 0xFD) != 0x00) {
+    mram_chip_t * mramPtr = (mram_chip_t *)context;
+    mramPtr->chipSelectCb(false);
+    mramPtr->busyFlag = false;
+    if (mramPtr->status == MRAM_STAT_NOT_INITIALIZED) {
+        if ((mramPtr->rx[0] & 0xFD) != 0x00) {
             /* Error -  Status Value not as expected */
-            mramStatus = MRAM_STAT_ERROR;
+            mramPtr->status = MRAM_STAT_ERROR;
             return;
         }
-        mramStatus = MRAM_STAT_INITIALIZED;
+        mramPtr->status = MRAM_STAT_INITIALIZED;
     }
 }
 
 
-void MramInit() {
-	mramStatus = MRAM_STAT_NOT_INITIALIZED;
-	/* --- Chip select IO --- */
-//	Chip_IOCON_PinMuxSet(LPC_IOCON, MRAM_CS_PORT, MRAM_CS_PIN, IOCON_FUNC0 | IOCON_MODE_INACT);
-//	Chip_IOCON_DisableOD(LPC_IOCON, MRAM_CS_PORT, MRAM_CS_PIN);
-//	Chip_GPIO_SetPinDIROutput(LPC_GPIO, MRAM_CS_PORT, MRAM_CS_PIN);
-//	Chip_GPIO_SetPinState(LPC_GPIO, MRAM_CS_PORT, MRAM_CS_PIN, true);
+void MramInit(uint8_t chipIdx, ado_sspid_t busNr, void(*csHandler)(bool select)) {
+    if (chipIdx < MRAM_CHIP_CNT) {
+        mram_chip_t *mramPtr =  &MramChipStates[chipIdx];
+        mramPtr->status = MRAM_STAT_NOT_INITIALIZED;
+        mramPtr->chipSelectCb = csHandler;
+        mramPtr->busNr = busNr;
 
-//	/* Init mram  read Status register
-//	 * B7		B6		B5		B4		B3		B2		B1		B0
-//	 * SRWD		d.c		d.c		d.c		BP1		BP2		WEL		d.c.
-//	 *
-//	 * On init all bits should read 0x00.
-//	 * The only bit we use here is WEL (Write Enable) and this is reset to 0
-//	 * on power up.
-//	 * None of the other (protection) bits are used at this moment by this software.
-//	 */
-//	uint8_t *job_status = NULL;
-//	volatile uint32_t helper;
+        //	/* Init mram  read Status register
+        //	 * B7		B6		B5		B4		B3		B2		B1		B0
+        //	 * SRWD		d.c		d.c		d.c		BP1		BP2		WEL		d.c.
+        //	 *
+        //	 * On init all bits should read 0x00.
+        //	 * The only bit we use here is WEL (Write Enable) and this is reset to 0
+        //	 * on power up.
+        //	 * None of the other (protection) bits are used at this moment by this software.
+        //	 */
+        //	uint8_t *job_status = NULL;
+        //	volatile uint32_t helper;
 
-	/* Read Status register */
-	tx[0] = 0x05;
-	rx[0] = 0xFF;
-
-
-	ADO_SSP_AddJob(MRAM_STAT_NOT_INITIALIZED, ADO_SSP0, tx, rx, 1, 1, MramJobFinished , MramActivate);
-
+        /* Read Status register */
+        mramPtr->tx[0] = 0x05;
+        mramPtr->rx[0] = 0xFF;
+        ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, mramPtr->rx, 1, 1, MramJobFinished , MramActivate);
+    } else {
+        // Extra call with invalid chipIdx to register commands -> make something more elegant ;-)
+        CliRegisterCommand("mRead", ReadMramCmd);
+        CliRegisterCommand("mWrite",WriteMramCmd);
+    }
 }
 
-//
-//	if (ssp_add_job2(SSP_BUS0, tx, 1, rx, 1, &job_status, MramChipSelect))
-//	{
-//		/* Error while adding job */
-//		mramStatus = MRAM_STAT_ERROR;
-//		return;
-//	}
-//
-//	helper = 0;
-//	while ((*job_status != SSP_JOB_STATE_DONE) && (helper < 1000000)) {
-//		/* Wait for job to finish */
-//		helper++;
-//	}
-//
-//	if (rx[0] != 0x00) {
-//		/* Error -  Status Value not as expected */
-//		mramStatus = MRAM_STAT_ERROR;
-//		return;
-//	}
-//	mramStatus = MRAM_STAT_IDLE;
-//
-//	RegisterCommand("mRead", ReadMramCmd);
-//	RegisterCommand("mWrite",WriteMramCmd);
-//}
+
 
 void MramMain() {
-	if (busyFlag) {
-		// TODO: timouts checken
-	} else {
-		if (mramStatus == MRAM_STAT_RX_INPROGRESS) {
-			// Rx job finished.
-			mramStatus = MRAM_STAT_IDLE;
-			mramCallback(MRAM_RES_SUCCESS, mramAdr, mramData, mramLen);
-		} else if (mramStatus == MRAM_STAT_WREN_SET) {
-			// Write enable set job finished
+    for (uint8_t chipIdx = 0; chipIdx < MRAM_CHIP_CNT; chipIdx++) {
+        mram_chip_t *mramPtr =  &MramChipStates[chipIdx];
 
-			//Initiate write data job
-			mramData[0] = 0x02;
-			mramData[1] = (mramAdr & 0x00010000) >> 16;
-			mramData[2] = (mramAdr & 0x0000ff00) >> 8;
-			mramData[3] = (mramAdr & 0x000000ff);
+        if (mramPtr->busyFlag) {
+            // TODO: timouts checken
+        } else {
+            if (mramPtr->status == MRAM_STAT_RX_INPROGRESS) {
+                // Rx job finished.
+                mramPtr->status = MRAM_STAT_IDLE;
+                mramPtr->ioFinishedCb(MRAM_RES_SUCCESS, mramPtr->ioAdr, mramPtr->ioDataPtr, mramPtr->ioLen);
+            } else if (mramPtr->status == MRAM_STAT_WREN_SET) {
+                // Write enable set job finished
 
-			busyFlag = true;
-		    ADO_SSP_AddJob(MRAM_STAT_TX_INPROGRESS, ADO_SSP0, mramData, rx, mramLen+4, 1, MramJobFinished , MramActivate);
-			//if (ssp_add_job2(SSP_BUS0, mramData, mramLen+4, NULL, 0, NULL, MramChipSelect)) {
-//
-//				/* Error while adding job */
-//				mramCallback(MRAM_RES_JOB_ADD_ERROR, mramAdr, 0, mramLen);
-//				return;
-//			}
-			mramStatus = MRAM_STAT_TX_INPROGRESS;
+                //Initiate write data job
+                mramPtr->mramData[0] = 0x02;
+                mramPtr->mramData[1] = (mramPtr->ioAdr & 0x00010000) >> 16;
+                mramPtr->mramData[2] = (mramPtr->ioAdr & 0x0000ff00) >> 8;
+                mramPtr->mramData[3] = (mramPtr->ioAdr & 0x000000ff);
 
-		} else if (mramStatus == MRAM_STAT_TX_INPROGRESS) {
-			// Write data job finished
-			// Initiate Write Disabled job
-			tx[0] = 0x04;
+                mramPtr->busyFlag = true;
+                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr,mramPtr->mramData, dummy, mramPtr->ioLen+4, 1, MramJobFinished , MramActivate);
+                //if (ssp_add_job2(SSP_BUS0, mramData, mramLen+4, NULL, 0, NULL, MramChipSelect)) {
+    //
+    //				/* Error while adding job */
+    //				mramCallback(MRAM_RES_JOB_ADD_ERROR, mramAdr, 0, mramLen);
+    //				return;
+    //			}
+                mramPtr->status = MRAM_STAT_TX_INPROGRESS;
 
-			busyFlag = true;
-	        ADO_SSP_AddJob(MRAM_STAT_WREN_CLR, ADO_SSP0, tx, rx, 1 , 1, MramJobFinished , MramActivate);
+            } else if (mramPtr->status == MRAM_STAT_TX_INPROGRESS) {
+                // Write data job finished
+                // Initiate Write Disabled job
+                mramPtr->tx[0] = 0x04;
 
-//			if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
-//				/* Error while adding job */
-//				mramCallback(MRAM_RES_JOB_ADD_ERROR, mramAdr, 0, mramLen);
-//				return;
-//			}
-			mramStatus = MRAM_STAT_WREN_CLR;
+                mramPtr->busyFlag = true;
+                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, dummy, 1 , 1, MramJobFinished , MramActivate);
 
-		} else if (mramStatus == MRAM_STAT_WREN_CLR) {
-			// Write disable job finished.
-			mramStatus = MRAM_STAT_IDLE;
-			mramCallback(MRAM_RES_SUCCESS, mramAdr, mramData, mramLen);
-		} else if (mramStatus == MRAM_STAT_INITIALIZED) {
-		    // init ok, lets register our commands.
-		    mramStatus = MRAM_STAT_IDLE;
-	        CliRegisterCommand("mRead", ReadMramCmd);
-	        CliRegisterCommand("mWrite",WriteMramCmd);
-		}
-	}
+    //			if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
+    //				/* Error while adding job */
+    //				mramCallback(MRAM_RES_JOB_ADD_ERROR, mramAdr, 0, mramLen);
+    //				return;
+    //			}
+                mramPtr->status = MRAM_STAT_WREN_CLR;
+
+            } else if (mramPtr->status == MRAM_STAT_WREN_CLR) {
+                // Write disable job finished. This finally ends the Write-IO
+                mramPtr->status = MRAM_STAT_IDLE;
+                mramPtr->ioFinishedCb(MRAM_RES_SUCCESS, mramPtr->ioAdr, mramPtr->ioDataPtr, mramPtr->ioLen);
+            } else if (mramPtr->status == MRAM_STAT_INITIALIZED) {
+                // init ok
+                mramPtr->status = MRAM_STAT_IDLE;
+            }
+        }
+    }   // END FOR all chips.
 }
 
 void ReadMramCmd(int argc, char *argv[]) {
-	if (argc != 2) {
-		printf("uasge: cmd <adr> <len> where\n" );
+	if (argc != 3) {
+		printf("uasge: cmd <chipIdx> <adr> <len> where\n" );
 		return;
 	}
 
 	// CLI params to binary params
-	uint32_t adr = atoi(argv[0]);
-	uint32_t len = atoi(argv[1]);
+	uint8_t  idx = atoi(argv[0]);
+	uint32_t adr = atoi(argv[1]);
+	uint32_t len = atoi(argv[2]);
 	if (len > MRAM_MAX_READ_SIZE) {
 		len = MRAM_MAX_READ_SIZE;
 	}
+	if (idx > MRAM_CHIP_CNT) {
+	        idx = 0;
+	    }
+
+	mram_chip_t *mramPtr =  &MramChipStates[idx];
 
 	// Binary Command
-	ReadMramAsync(adr, MramReadData, len, ReadMramFinished);
+	ReadMramAsync(idx, adr, mramPtr->mramData, len, ReadMramFinished);
 }
 
 void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
@@ -224,25 +218,31 @@ void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t 
 }
 
 void WriteMramCmd(int argc, char *argv[]) {
-	if (argc != 3) {
-		printf("uasge: cmd <adr> <databyte> <len> \n" );
+	if (argc != 4) {
+		printf("uasge: cmd <chipidx> <adr> <databyte> <len> \n" );
 		return;
 	}
 
 	// CLI params to binary params
-	uint32_t adr = atoi(argv[0]);
-	uint8_t byte = atoi(argv[1]);
-	uint32_t len = atoi(argv[2]);
+	uint8_t  idx = atoi(argv[0]);
+	uint32_t adr = atoi(argv[1]);
+	uint8_t byte = atoi(argv[2]);
+	uint32_t len = atoi(argv[3]);
 	if (len > MRAM_MAX_WRITE_SIZE) {
 		len = MRAM_MAX_WRITE_SIZE;
 	}
+	if (idx > MRAM_CHIP_CNT) {
+	    idx = 0;
+	}
+
+	mram_chip_t *mramPtr =  &MramChipStates[idx];
 
 	for (int i=0;i<len;i++){
-		MramWriteData[i+4] = byte;		// keep first 4 bytes free for mram Write header.
+	    mramPtr->mramData[i+4] = byte;		// keep first 4 bytes free for mram Write header.
 	}
 
 	// Binary Command
-	WriteMramAsync(adr, MramWriteData, len,  WriteMramFinished);
+	WriteMramAsync(idx, adr, mramPtr->mramData, len,  WriteMramFinished);
 }
 
 void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
@@ -254,8 +254,16 @@ void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t
 }
 
 
-void ReadMramAsync(uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
-	if (mramStatus != MRAM_STAT_IDLE) {
+void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
+    mram_chip_t *mramPtr = 0;
+    if (chipIdx < MRAM_CHIP_CNT) {
+        mramPtr =  &MramChipStates[chipIdx];
+    } else {
+        finishedHandler(MRAM_RES_INVALID_CHIPIDX, adr, 0, len);
+        return;
+    }
+
+    if (mramPtr->status != MRAM_STAT_IDLE) {
 		finishedHandler(MRAM_RES_BUSY, adr, 0, len);
 		return;
 	}
@@ -276,32 +284,33 @@ void ReadMramAsync(uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finish
 	}
 
 	/*--- Read Data Bytes Command --- */
-	tx[0] = 0x03;
-	tx[1] = (adr & 0x00010000) >> 16;
-	tx[2] = (adr & 0x0000ff00) >> 8;
-	tx[3] = (adr & 0x000000ff);
+	mramPtr->tx[0] = 0x03;
+	mramPtr->tx[1] = (adr & 0x00010000) >> 16;
+	mramPtr->tx[2] = (adr & 0x0000ff00) >> 8;
+	mramPtr->tx[3] = (adr & 0x000000ff);
 
-	busyFlag = true;
+	mramPtr->busyFlag = true;
+	mramPtr->status = MRAM_STAT_RX_INPROGRESS;
+	mramPtr->ioFinishedCb = finishedHandler;
+	mramPtr->ioAdr = adr;
+	mramPtr->ioDataPtr = rx_data;
+	mramPtr->ioLen = len;
 
-    ADO_SSP_AddJob(MRAM_STAT_RX_INPROGRESS, ADO_SSP0, tx, rx_data, 4 , len, MramJobFinished , MramActivate);
+    ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, rx_data, 4 , len, MramJobFinished , MramActivate);
 
-//	if (ssp_add_job2(SSP_BUS0,  tx, 4, rx_data, len, NULL, MramChipSelect)) {
-//		/* Error while adding job */
-//		finishedHandler(MRAM_RES_JOB_ADD_ERROR, adr, 0, len);
-//		return;
-//	}
-
-	// next step(s) is/are done in mainloop
-	mramStatus = MRAM_STAT_RX_INPROGRESS;
-	mramAdr = adr;
-	mramLen = len;
-	mramData = rx_data;
-	mramCallback = 	finishedHandler;
 	return;
 }
 
-void WriteMramAsync(uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
-	if (mramStatus != MRAM_STAT_IDLE) {
+void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
+    mram_chip_t *mramPtr = 0;
+    if (chipIdx < MRAM_CHIP_CNT) {
+        mramPtr =  &MramChipStates[chipIdx];
+    } else {
+        finishedHandler(MRAM_RES_INVALID_CHIPIDX, adr, 0, len);
+        return;
+    }
+
+    if (mramPtr->status != MRAM_STAT_IDLE) {
 		finishedHandler(MRAM_RES_BUSY, adr, 0, len);
 		return;
 	}
@@ -323,10 +332,15 @@ void WriteMramAsync(uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedH
 
 	/*--- SetWrtite enable Command --- */
 
-	tx[0] = 0x06;
+	mramPtr->tx[0] = 0x06;
 
-	busyFlag = true;
-	ADO_SSP_AddJob(MRAM_STAT_WREN_SET, ADO_SSP0, tx, rx, 1 , 1, MramJobFinished , MramActivate);
+	mramPtr->busyFlag = true;
+	mramPtr->status = MRAM_STAT_WREN_SET;
+	mramPtr->ioFinishedCb = finishedHandler;
+	mramPtr->ioAdr = adr;
+	mramPtr->ioDataPtr = data;
+	mramPtr->ioLen = len;
+	ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, dummy, 1 , 1, MramJobFinished , MramActivate);
 
 //	if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
 //		/* Error while adding job */
@@ -335,11 +349,6 @@ void WriteMramAsync(uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedH
 //	}
 
 	// next step(s) is/are done in mainloop
-	mramStatus = MRAM_STAT_WREN_SET;
-	mramAdr = adr;
-	mramLen = len;
-	mramData = data;
-	mramCallback = 	finishedHandler;
 	return;
 }
 
