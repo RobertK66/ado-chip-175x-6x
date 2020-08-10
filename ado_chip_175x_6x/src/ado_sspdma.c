@@ -215,6 +215,7 @@ void DMA_IRQHandler(void) {
 			ADO_SSP_InitiateDMA(ADO_SSP0,&ado_sspjobs[0].job[ado_sspjobs[0].current_job]);
 		}
 	}
+
 	if ( tcs & (1<<ADO_SSP_RXDMACHANNEL1) ) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL1);
 		// This was SSP1 finishing its RX Channel.
@@ -278,6 +279,17 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	if (newJob->txSize > 0) {
 		(pDmaTd+1)->src = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);
 		(pDmaTd+3)->dst = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);
+		if (newJob->rxSize == 0) {
+		    // Cutoff Rx-DMA after TX part
+		    (pDmaTd+0)->lli = 0;
+		    (pDmaTd+2)->lli = 0;
+		    // Enable IRQ after first TX part finished.
+		    (pDmaTd+0)->ctrl =  0x80009000 | (uint32_t)(newJob->txSize);
+		} else {
+		    // Re-establish lli links to 2nd part
+		    (pDmaTd+0)->lli = (uint32_t)(pDmaTd+1);
+		    (pDmaTd+2)->lli = (uint32_t)(pDmaTd+3);
+		}
 		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_RxDmaChannel[sspId],(pDmaTd+0), GPDMA_TRANSFERTYPE_P2M_CONTROLLER_DMA);
 		Chip_GPDMA_SGTransfer(LPC_GPDMA, ADO_SSP_TxDmaChannel[sspId],(pDmaTd+2), GPDMA_TRANSFERTYPE_M2P_CONTROLLER_DMA);
 	} else {
