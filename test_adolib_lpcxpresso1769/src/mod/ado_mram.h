@@ -7,6 +7,8 @@
 #ifndef MOD_ADO_MRAM_H_
 #define MOD_ADO_MRAM_H_
 
+#include <ado_sspdma.h>
+
 #define MRAM_MAX_READ_SIZE	1024
 #define MRAM_MAX_WRITE_SIZE	1024
 
