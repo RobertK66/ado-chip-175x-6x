@@ -32,7 +32,7 @@
 #include "mod/ado_sdcard.h"
 #include "mod/ado_eventlogger.h"
 #include "mod/ado_mram.h"
-
+#include "mod/ado_mram_cli.h"
 
 
 // collect all module tests together into one test suite.
@@ -142,8 +142,7 @@ int main(void) {
 	MramInit(3,ADO_SSP0, CsMram0);
     MramInit(4,ADO_SSP0, CsMram1);
     MramInit(5,ADO_SSP0, CsMram2);
-
-    MramInit(99,ADO_SSP0, CsMram0); // Dummy call to initilaize CLI commands
+    AdoMramCliInit();
 
 	// register (test) command(s) ...
 	CliRegisterCommand("test", main_testCmd);

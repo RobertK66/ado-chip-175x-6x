@@ -4,21 +4,15 @@
  *  Created on: 27.12.2019
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <chip.h>
-
-#include <ado_sspdma.h>
-#include <mod/cli.h>
-
 #include "ado_mram.h"
 
-//#define MRAM_CS_PORT	 1
-//#define MRAM_CS_PIN		31
+//#include <stdio.h>
+//#include <stdlib.h>
+#include <chip.h>
+#include <string.h>
 
-//#define MRAM_CHIP_CNT       6
-
-//#define MRAM_READ_STATUS 55
+#include <ado_sspdma.h>
+//#include <mod/cli.h>
 
 typedef enum mram_status_e {
 	MRAM_STAT_NOT_INITIALIZED,
@@ -49,22 +43,11 @@ typedef struct mram_chip_s {
 
 mram_chip_t MramChipStates[MRAM_CHIP_CNT];
 
-// variables
-//volatile bool 	busyFlag;
-//mram_status_t 	mramStatus;
-//void (*mramCallback)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
-
-
-//uint8_t tx[4];
-//uint8_t dummy[1];
-//uint8_t MramReadData[MRAM_MAX_READ_SIZE];
-//uint8_t MramWriteData[MRAM_MAX_WRITE_SIZE + 4];
-
-// prototypes
-void ReadMramCmd(int argc, char *argv[]);
-void WriteMramCmd(int argc, char *argv[]);
-void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
-void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+//// prototypes
+//void ReadMramCmd(int argc, char *argv[]);
+//void WriteMramCmd(int argc, char *argv[]);
+//void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+//void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 
 //
 // Be careful here! This Callback is sometimes called from IRQ !!!
@@ -79,16 +62,20 @@ void MramJobFinished(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxDat
     mram_chip_t * mramPtr = (mram_chip_t *)context;
     mramPtr->chipSelectCb(false);
     mramPtr->busyFlag = false;
-    if (mramPtr->status == MRAM_STAT_NOT_INITIALIZED) {
-        if ((mramPtr->rx[0] & 0xFD) != 0x00) {
-            /* Error -  Status Value not as expected */
-            mramPtr->status = MRAM_STAT_ERROR;
-            return;
+    if (jobStatus == ADO_SSP_JOBDONE) {
+        if (mramPtr->status == MRAM_STAT_NOT_INITIALIZED) {
+            if ((mramPtr->rx[0] & 0xFD) != 0x00) {
+                /* Error -  Status Value not as expected */
+                mramPtr->status = MRAM_STAT_ERROR;
+                return;
+            }
+            mramPtr->status = MRAM_STAT_INITIALIZED;
         }
-        mramPtr->status = MRAM_STAT_INITIALIZED;
+    } else {
+        mramPtr->status = MRAM_STAT_ERROR;
+        // TODO: log error cause from job_status ..... Callback in main loop with error translation !!???!!!
     }
 }
-
 
 void MramInit(uint8_t chipIdx, ado_sspid_t busNr, void(*csHandler)(bool select)) {
     if (chipIdx < MRAM_CHIP_CNT) {
@@ -113,14 +100,8 @@ void MramInit(uint8_t chipIdx, ado_sspid_t busNr, void(*csHandler)(bool select))
         mramPtr->tx[0] = 0x05;
         mramPtr->rx[0] = 0xFF;
         ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, mramPtr->rx, 1, 1, MramJobFinished , MramActivate);
-    } else {
-        // Extra call with invalid chipIdx to register commands -> make something more elegant ;-)
-        CliRegisterCommand("mRead", ReadMramCmd);
-        CliRegisterCommand("mWrite",WriteMramCmd);
     }
 }
-
-
 
 void MramMain() {
     for (uint8_t chipIdx = 0; chipIdx < MRAM_CHIP_CNT; chipIdx++) {
@@ -141,15 +122,10 @@ void MramMain() {
                 mramPtr->mramData[1] = (mramPtr->ioAdr & 0x00010000) >> 16;
                 mramPtr->mramData[2] = (mramPtr->ioAdr & 0x0000ff00) >> 8;
                 mramPtr->mramData[3] = (mramPtr->ioAdr & 0x000000ff);
-
+                memcpy(&mramPtr->mramData[4],mramPtr->ioDataPtr, mramPtr->ioLen);           // TODO: we could make a Scatter DMA with Tx1-TX2 to solve this aditional copy .and the need of duplicate buffer !!!!....
+                                                                                            // 
                 mramPtr->busyFlag = true;
                 ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr,mramPtr->mramData, NULL, mramPtr->ioLen+4, 0, MramJobFinished , MramActivate);
-                //if (ssp_add_job2(SSP_BUS0, mramData, mramLen+4, NULL, 0, NULL, MramChipSelect)) {
-    //
-    //				/* Error while adding job */
-    //				mramCallback(MRAM_RES_JOB_ADD_ERROR, mramAdr, 0, mramLen);
-    //				return;
-    //			}
                 mramPtr->status = MRAM_STAT_TX_INPROGRESS;
 
             } else if (mramPtr->status == MRAM_STAT_TX_INPROGRESS) {
@@ -159,12 +135,6 @@ void MramMain() {
 
                 mramPtr->busyFlag = true;
                 ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
-
-    //			if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
-    //				/* Error while adding job */
-    //				mramCallback(MRAM_RES_JOB_ADD_ERROR, mramAdr, 0, mramLen);
-    //				return;
-    //			}
                 mramPtr->status = MRAM_STAT_WREN_CLR;
 
             } else if (mramPtr->status == MRAM_STAT_WREN_CLR) {
@@ -177,80 +147,6 @@ void MramMain() {
             }
         }
     }   // END FOR all chips.
-}
-
-void ReadMramCmd(int argc, char *argv[]) {
-	if (argc != 3) {
-		printf("uasge: cmd <chipIdx> <adr> <len> where\n" );
-		return;
-	}
-
-	// CLI params to binary params
-	uint8_t  idx = atoi(argv[0]);
-	uint32_t adr = atoi(argv[1]);
-	uint32_t len = atoi(argv[2]);
-	if (len > MRAM_MAX_READ_SIZE) {
-		len = MRAM_MAX_READ_SIZE;
-	}
-	if (idx > MRAM_CHIP_CNT) {
-	        idx = 0;
-	    }
-
-	mram_chip_t *mramPtr =  &MramChipStates[idx];
-
-	// Binary Command
-	ReadMramAsync(idx, adr, mramPtr->mramData, len, ReadMramFinished);
-}
-
-void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
-	if (result == MRAM_RES_SUCCESS) {
-		printf("MRAM read at %04X:\n", adr);
-		for (int i=0; i<len; i++ ) {
-			printf("%02X ", ((uint8_t*)data)[i]);
-			if ((i+1)%8 == 0) {
-				printf("   ");
-			}
-		}
-		printf("\n");
-	} else {
-		printf("Error reading MRAM: %d\n", result);
-	}
-}
-
-void WriteMramCmd(int argc, char *argv[]) {
-	if (argc != 4) {
-		printf("uasge: cmd <chipidx> <adr> <databyte> <len> \n" );
-		return;
-	}
-
-	// CLI params to binary params
-	uint8_t  idx = atoi(argv[0]);
-	uint32_t adr = atoi(argv[1]);
-	uint8_t byte = atoi(argv[2]);
-	uint32_t len = atoi(argv[3]);
-	if (len > MRAM_MAX_WRITE_SIZE) {
-		len = MRAM_MAX_WRITE_SIZE;
-	}
-	if (idx > MRAM_CHIP_CNT) {
-	    idx = 0;
-	}
-
-	mram_chip_t *mramPtr =  &MramChipStates[idx];
-
-	for (int i=0;i<len;i++){
-	    mramPtr->mramData[i+4] = byte;		// keep first 4 bytes free for mram Write header.
-	}
-
-	// Binary Command
-	WriteMramAsync(idx, adr, mramPtr->mramData, len,  WriteMramFinished);
-}
-
-void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
-	if (result == MRAM_RES_SUCCESS) {
-		printf("%d bytes written to mram at %04X \n", len, adr);
-	} else {
-		printf("Error reading MRAM: %d\n", result);
-	}
 }
 
 
@@ -342,13 +238,6 @@ void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len, 
 	mramPtr->ioLen = len;
 	ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
 
-//	if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
-//		/* Error while adding job */
-//		finishedHandler(MRAM_RES_JOB_ADD_ERROR, adr, 0, len);
-//		return;
-//	}
-
-	// next step(s) is/are done in mainloop
 	return;
 }
 
