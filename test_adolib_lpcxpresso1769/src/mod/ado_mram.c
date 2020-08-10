@@ -56,7 +56,7 @@ mram_chip_t MramChipStates[MRAM_CHIP_CNT];
 
 
 //uint8_t tx[4];
-uint8_t dummy[1];
+//uint8_t dummy[1];
 //uint8_t MramReadData[MRAM_MAX_READ_SIZE];
 //uint8_t MramWriteData[MRAM_MAX_WRITE_SIZE + 4];
 
@@ -143,7 +143,7 @@ void MramMain() {
                 mramPtr->mramData[3] = (mramPtr->ioAdr & 0x000000ff);
 
                 mramPtr->busyFlag = true;
-                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr,mramPtr->mramData, dummy, mramPtr->ioLen+4, 1, MramJobFinished , MramActivate);
+                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr,mramPtr->mramData, NULL, mramPtr->ioLen+4, 0, MramJobFinished , MramActivate);
                 //if (ssp_add_job2(SSP_BUS0, mramData, mramLen+4, NULL, 0, NULL, MramChipSelect)) {
     //
     //				/* Error while adding job */
@@ -158,7 +158,7 @@ void MramMain() {
                 mramPtr->tx[0] = 0x04;
 
                 mramPtr->busyFlag = true;
-                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, dummy, 1 , 1, MramJobFinished , MramActivate);
+                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
 
     //			if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
     //				/* Error while adding job */
@@ -340,7 +340,7 @@ void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len, 
 	mramPtr->ioAdr = adr;
 	mramPtr->ioDataPtr = data;
 	mramPtr->ioLen = len;
-	ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, dummy, 1 , 1, MramJobFinished , MramActivate);
+	ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
 
 //	if (ssp_add_job2(SSP_BUS0, tx, 1, NULL, 0, NULL, MramChipSelect)) {
 //		/* Error while adding job */
