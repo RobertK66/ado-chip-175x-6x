@@ -12,10 +12,10 @@
 #include <chip.h>
 
 #define ADO_SSP_MAXJOBS 		(13)
-#define ADO_SSP_RXDMACHANNEL0	7
-#define ADO_SSP_TXDMACHANNEL0	6
-#define ADO_SSP_RXDMACHANNEL1	5
-#define ADO_SSP_TXDMACHANNEL1	4
+#define ADO_SSP0_RXDMACHANNEL	7
+#define ADO_SSP0_TXDMACHANNEL	6
+#define ADO_SSP1_RXDMACHANNEL	5
+#define ADO_SSP1_TXDMACHANNEL	4
 
 typedef enum ado_sspid_e
 {
@@ -30,9 +30,19 @@ typedef enum ado_sspstatus_e
 #define AdoSSP_FinishedHandler(name) void(*name)(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize)
 #define AdoSSP_ActivateHandler(name) void(*name)(uint32_t context)
 
-
-
-
+/**
+ * @brief Initializes one of the 2 SPI buses
+ *
+ * @param sspId         : SSP bus to be used:
+ *                          - ADO_SSP0
+ *                          - ADO_SSP1
+ * @param bitRate       : Clock frequency of SSP bus in Herz
+ *                          - it calculates a near fit depending of system clock settings
+ *                          - for sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz
+ * @param clockMode     : use one of
+ *                          - SSP_CLOCK_MODE3
+ *                          - SSP_CLOCK_MODE0
+ */
 void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate, CHIP_SSP_CLOCK_MODE_T clockMode);
 
 /**

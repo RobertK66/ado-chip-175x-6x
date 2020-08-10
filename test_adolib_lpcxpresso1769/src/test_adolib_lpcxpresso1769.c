@@ -130,18 +130,23 @@ int main(void) {
 	LogUsrEvent(&event);
 
 	StopWatch_Init1(LPC_TIMER0);
-	ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);			// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
-	                                                            // My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
+
+	// SSPx init:
+	// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
+	// My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
+    ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
 	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 
 	SdcInit(ADO_SSP1);
 
+	// 6 chip inits
 	MramInit(0,ADO_SSP1, CsMram3);
     MramInit(1,ADO_SSP1, CsMram4);
     MramInit(2,ADO_SSP1, CsMram5);
 	MramInit(3,ADO_SSP0, CsMram0);
     MramInit(4,ADO_SSP0, CsMram1);
     MramInit(5,ADO_SSP0, CsMram2);
+    // CLI commands registering
     AdoMramCliInit();
 
 	// register (test) command(s) ...

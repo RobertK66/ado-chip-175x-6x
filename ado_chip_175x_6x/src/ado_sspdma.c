@@ -19,6 +19,8 @@
 //#define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
 #define ADO_SSP_DUMP_RX(device) { while ((device->SR & SSP_STAT_RNE) != 0) { rxDummy = device->DR; } }
 
+#define ADO_INCREMENT_SSPJOBNR(anyUint) { anyUint++; if (anyUint == ADO_SSP_MAXJOBS) {anyUint = 0; } }
+
 
 // Following constants hold the Configuration data for both SSPx interfaces. idx=0 -> SSP0 idx=1 ->SSP1
 const LPC_SSP_T *ADO_SSP_RegBase[] = {
@@ -32,13 +34,13 @@ const CHIP_SYSCTL_CLOCK_T ADO_SSP_SysCtlClock[] = {
 };
 
 const uint8_t ADO_SSP_RxDmaChannel[] = {
-	ADO_SSP_RXDMACHANNEL0,
-	ADO_SSP_RXDMACHANNEL1
+	ADO_SSP0_RXDMACHANNEL,
+	ADO_SSP1_RXDMACHANNEL
 };
 
 const uint8_t ADO_SSP_TxDmaChannel[] = {
-	ADO_SSP_TXDMACHANNEL0,
-	ADO_SSP_TXDMACHANNEL1
+	ADO_SSP0_TXDMACHANNEL,
+	ADO_SSP1_TXDMACHANNEL
 };
 
 const uint32_t ADO_SSP_GPDMA_CONN_RX[] = {
@@ -148,7 +150,8 @@ void ADO_SSP_Init(ado_sspid_t sspId, uint32_t bitRate, CHIP_SSP_CLOCK_MODE_T clo
 void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId,
                     uint8_t *txData, uint8_t *rxData,
                     uint16_t txLen, uint16_t rxLen,
-                    AdoSSP_FinishedHandler(finish), AdoSSP_ActivateHandler(activate)){
+                    AdoSSP_FinishedHandler(finish),
+                    AdoSSP_ActivateHandler(activate)){
 	bool startIt = false;
 	ado_sspjobs_t *jobs = &ado_sspjobs[sspId];
 
@@ -194,11 +197,16 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId,
 }
 
 
+/**
+ *  The DRM IRQ will be called only by the last DMA in the Scattered List.
+ *  We only use the RX Channels IRQs here,
+ *  as the RX-DMA will always be triggered after the last byte was sent out by the corresponding TX DMA Channel.
+ */
 void DMA_IRQHandler(void) {
 	// Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);      // Debug IO
 	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
-	if ( tcs & (1UL<<ADO_SSP_RXDMACHANNEL0) ) {
-		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL0);
+	if ( tcs & (1UL<<ADO_SSP0_RXDMACHANNEL) ) {
+		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP0_RXDMACHANNEL);
 		// This was SSP0 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[0].job[ado_sspjobs[0].current_job];
 		//if (job->ADO_SSP_JobFinished_IRQCallback != 0) {      // safety or performance? which to choose here?
@@ -208,16 +216,13 @@ void DMA_IRQHandler(void) {
 		ado_sspjobs[0].jobs_pending--;
 		if (ado_sspjobs[0].jobs_pending > 0) {
 			// Continue with nextJob
-			ado_sspjobs[0].current_job++;
-			if (ado_sspjobs[0].current_job == ADO_SSP_MAXJOBS) {
-				ado_sspjobs[0].current_job = 0;
-			}
+		    ADO_INCREMENT_SSPJOBNR(ado_sspjobs[0].current_job);
 			ADO_SSP_InitiateDMA(ADO_SSP0,&ado_sspjobs[0].job[ado_sspjobs[0].current_job]);
 		}
 	}
 
-	if ( tcs & (1<<ADO_SSP_RXDMACHANNEL1) ) {
-		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP_RXDMACHANNEL1);
+	if ( tcs & (1<<ADO_SSP1_RXDMACHANNEL) ) {
+		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP1_RXDMACHANNEL);
 		// This was SSP1 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[1].job[ado_sspjobs[1].current_job];
 		//if (job->ADO_SSP_JobFinished_IRQCallback != 0) {      // safety or performance? which to choose here?
@@ -226,10 +231,7 @@ void DMA_IRQHandler(void) {
 		ado_sspjobs[1].jobs_pending--;
 		if (ado_sspjobs[1].jobs_pending > 0) {
 			// Continue with nextJob
-			ado_sspjobs[1].current_job++;
-			if (ado_sspjobs[1].current_job == ADO_SSP_MAXJOBS) {
-				ado_sspjobs[1].current_job = 0;
-			}
+			ADO_INCREMENT_SSPJOBNR(ado_sspjobs[1].current_job);
 			ADO_SSP_InitiateDMA(ADO_SSP1,&ado_sspjobs[1].job[ado_sspjobs[1].current_job]);
 		}
 	}
