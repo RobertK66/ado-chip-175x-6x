@@ -41,7 +41,7 @@ typedef struct mram_chip_s {
     uint8_t         rx[1];              // Rx (Status byte) buffer
 } mram_chip_t;
 
-mram_chip_t MramChipStates[MRAM_CHIP_CNT];
+static mram_chip_t MramChipStates[MRAM_CHIP_CNT];
 
 //// prototypes
 //void ReadMramCmd(int argc, char *argv[]);

@@ -10,8 +10,8 @@
 
 #include <ado_sspdma.h>
 
-void SdcInit(ado_sspid_t sspId);
-void SdcMain();
+void SdcInit(ado_sspid_t sspId, void(*csHandler)(bool select));
+void SdcMain(ado_sspid_t bus);
 
 
 

@@ -30,6 +30,7 @@
 #include "tests/test_sspdma.h"
 
 #include "mod/ado_sdcard.h"
+#include "mod/ado_sdcard_cli.h"
 #include "mod/ado_eventlogger.h"
 #include "mod/ado_mram.h"
 #include "mod/ado_mram_cli.h"
@@ -102,6 +103,15 @@ void CsMram5(bool select) {
 
 }
 
+void CsSdCard0(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, 0, 16, !select);
+}
+
+void CsSdCard1(bool select) {
+    Chip_GPIO_SetPinState(LPC_GPIO, 0, 6, !select);
+}
+
+
 int main(void) {
     // Start the systemTime running on RIT IRQ. The offset to start from is dependent on code runtime from reset up to here.
     uint32_t resetCount = GetResetCntFromRTC();
@@ -137,7 +147,8 @@ int main(void) {
     ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
 	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 
-	SdcInit(ADO_SSP1);
+	SdcInit(ADO_SSP1, CsSdCard1);
+	AdoSdcardCliInit();
 
 	// 6 chip inits
 	MramInit(0,ADO_SSP1, CsMram3);
@@ -161,7 +172,7 @@ int main(void) {
 
 	while(1) {
 		CliMain();
-		SdcMain();
+		SdcMain(ADO_SSP1);
 		LogMain();
 		MramMain();
 	}
