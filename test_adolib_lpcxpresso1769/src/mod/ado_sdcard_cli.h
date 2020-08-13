@@ -8,6 +8,6 @@
 #ifndef MOD_ADO_SDCARD_CLI_H_
 #define MOD_ADO_SDCARD_CLI_H_
 
-void AdoSdcardCliInit();
+void AdoSdcardCliInit(int cardC, void *cardV[]);
 
 #endif /* MOD_ADO_SDCARD_CLI_H_ */

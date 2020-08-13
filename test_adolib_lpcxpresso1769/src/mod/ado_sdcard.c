@@ -168,11 +168,11 @@ typedef struct bootSector_S {
 #define ADO_SDC_DUMPMODE_FAT_BL0         1
 #define ADO_SDC_DUMPMODE_FAT_BOOTSECTOR  2
 
-static uint16_t         sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-static uint16_t         sdcDumpLines = 0;
-static uint32_t 		sdcCurRwBlockNr;
-static uint8_t 			sdcRwData[520];
-static uint8_t 			sdcEditBlock[512];
+extern uint16_t         sdcDumpMode; // = ADO_SDC_DUMPMODE_RAW;
+extern uint16_t         sdcDumpLines; // = 0;
+extern uint32_t 		sdcCurRwBlockNr;
+extern uint8_t 			sdcRwData[520];
+extern uint8_t 			sdcEditBlock[512];
 
 
 //static ado_sdc_cardtype_t sdcType = ADO_SDC_CARD_UNKNOWN;
@@ -204,7 +204,7 @@ void ActivateCS(uint32_t context) {
 //}
 
 
-void SdcInit(ado_sspid_t bus,  void(*csHandler)(bool select)) {
+void *SdcInit(ado_sspid_t bus,  void(*csHandler)(bool select)) {
 
 	SdCard[bus].sdcBusNr = bus;
 	SdCard[bus].csHandler = csHandler;
@@ -219,151 +219,153 @@ void SdcInit(ado_sspid_t bus,  void(*csHandler)(bool select)) {
 //	CliRegisterCommand("sdcEdit", SdcEditCmd);
 //	CliRegisterCommand("sdcWrite", SdcWriteCmd);
 //	CliRegisterCommand("sdcFAT", SdcCheckFatCmd);
+	return (void *)&SdCard[bus];
 }
 
-void SdcMain(ado_sspid_t bus) {
+void SdcMain(void *pCard) {
+    ado_sdcard_t *sdCard = (ado_sdcard_t *)pCard;
 
-	if (!SdCard[bus].sdcCmdPending) {
+	if (!sdCard->sdcCmdPending) {
 		// This is the sdc state engine reacting to a finished SPI job
-		switch (SdCard[bus].sdcStatus) {
+		switch (sdCard->sdcStatus) {
 		case ADO_SDC_CARDSTATUS_INIT_RESET:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x01) {
+			if (sdCard->sdcCmdResponse[1] == 0x01) {
 				// Send CMD8
-				SdcSendCommand(bus, ADO_SDC_CMD8_SEND_IF_COND, ADO_SDC_CARDSTATUS_INIT_CMD8, 0x000001AA);
+				SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD8_SEND_IF_COND, ADO_SDC_CARDSTATUS_INIT_CMD8, 0x000001AA);
 			} else {
 				// Try a 2nd time
 				// All my SDHD cards switch to SPI mode with this repeat - regardless of power up sequence!
-				SdcSendCommand(bus, ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET2, 0);
+				SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET2, 0);
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_RESET2:
-				if (SdCard[bus].sdcCmdResponse[1] == 0x01) {
+				if (sdCard->sdcCmdResponse[1] == 0x01) {
 					// Send CMD8
-					SdcSendCommand(bus, ADO_SDC_CMD8_SEND_IF_COND, ADO_SDC_CARDSTATUS_INIT_CMD8, 0x000001AA);
+					SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD8_SEND_IF_COND, ADO_SDC_CARDSTATUS_INIT_CMD8, 0x000001AA);
 				} else {
 				    // TODO: replace with error event
 					printf("CMD GO_IDLE error.\n");
-					SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+					sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 				}
 				break;
 
 		case ADO_SDC_CARDSTATUS_INIT_CMD8:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x01) {
-			    SdCard[bus].sdcType = ADO_SDC_CARD_20SD;
+			if (sdCard->sdcCmdResponse[1] == 0x01) {
+			    sdCard->sdcType = ADO_SDC_CARD_20SD;
 				// Send CMD55 (-> ACMD41)
-				SdcSendCommand(bus, ADO_SDC_CMD55_APP_CMD, ADO_SDC_CARDSTATUS_INIT_ACMD41_1, 0);
+				SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD55_APP_CMD, ADO_SDC_CARDSTATUS_INIT_ACMD41_1, 0);
 			} else {
-			    SdCard[bus].sdcType = ADO_SDC_CARD_1XSD;
+			    sdCard->sdcType = ADO_SDC_CARD_1XSD;
 				// TODO: init not ready here state engine missing....
 			    // TODO: replace with error event
 				printf("Sd Card version not implemented yet.\n");
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_ACMD41_1:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x01) {
+			if (sdCard->sdcCmdResponse[1] == 0x01) {
 				// Send (CMD55 - ) ACMD41
-				if (SdCard[bus].sdcType == ADO_SDC_CARD_1XSD) {
-					SdcSendCommand(bus, ADO_SDC_CMD41_SD_SEND_OP_COND, ADO_SDC_CARDSTATUS_INIT_ACMD41_2, 0);
+				if (sdCard->sdcType == ADO_SDC_CARD_1XSD) {
+					SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD41_SD_SEND_OP_COND, ADO_SDC_CARDSTATUS_INIT_ACMD41_2, 0);
 				} else {
-					SdcSendCommand(bus, ADO_SDC_CMD41_SD_SEND_OP_COND, ADO_SDC_CARDSTATUS_INIT_ACMD41_2, 0x40000000);
+					SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD41_SD_SEND_OP_COND, ADO_SDC_CARDSTATUS_INIT_ACMD41_2, 0x40000000);
 				}
 			} else {
 			    // TODO: replace with error event
 				printf("CMD55 rejected\n");
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_ACMD41_2:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x01) {
+			if (sdCard->sdcCmdResponse[1] == 0x01) {
 				// Init sequence is not finished yet(idle mode).
 				// Lets wait some main loops and then retry the ACMD41
-			    SdCard[bus].sdcWaitLoops = 100;
-			    SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_INIT_ACMD41_3;
+			    sdCard->sdcWaitLoops = 100;
+			    sdCard->sdcStatus = ADO_SDC_CARDSTATUS_INIT_ACMD41_3;
 			    printf("."); // debug indicator only....
-			} else if (SdCard[bus].sdcCmdResponse[1] == 0x00) {
+			} else if (sdCard->sdcCmdResponse[1] == 0x00) {
 				printf("\n");  // debug indicator only....
 				// Send CMD58 to get R3 - OCR Response
-				SdcSendCommand(bus, ADO_SDC_CMD58_READ_OCR, ADO_SDC_CARDSTATUS_INIT_READ_OCR, 0);
+				SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD58_READ_OCR, ADO_SDC_CARDSTATUS_INIT_READ_OCR, 0);
 			} else {
 			    // TODO: replace with error event.
-				printf("Errors %02X to ACMD41\n", SdCard[bus].sdcCmdResponse[1]);
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				printf("Errors %02X to ACMD41\n", sdCard->sdcCmdResponse[1]);
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_ACMD41_3:
-			if (SdCard[bus].sdcWaitLoops > 0) {
-			    SdCard[bus].sdcWaitLoops--;
-				if (SdCard[bus].sdcWaitLoops == 0) {
+			if (sdCard->sdcWaitLoops > 0) {
+			    sdCard->sdcWaitLoops--;
+				if (sdCard->sdcWaitLoops == 0) {
 					// Retry the ACMD41
 					// Send CMD55 (-> ACMD41)
-					SdcSendCommand(bus, ADO_SDC_CMD55_APP_CMD, ADO_SDC_CARDSTATUS_INIT_ACMD41_1, 0);
+					SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD55_APP_CMD, ADO_SDC_CARDSTATUS_INIT_ACMD41_1, 0);
 				}
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_INIT_READ_OCR:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x00) {
-				if ((SdCard[bus].sdcType == ADO_SDC_CARD_20SD) &&
-					((SdCard[bus].sdcCmdResponse[2] & 0x40) != 0)) {
-				    SdCard[bus].sdcType = ADO_SDC_CARD_20HCXC;
+			if (sdCard->sdcCmdResponse[1] == 0x00) {
+				if ((sdCard->sdcType == ADO_SDC_CARD_20SD) &&
+					((sdCard->sdcCmdResponse[2] & 0x40) != 0)) {
+				    sdCard->sdcType = ADO_SDC_CARD_20HCXC;
 				}
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
-				printf("Card (type %d) initialized.\n", SdCard[bus].sdcType);  // Debug indicator only!? or success event !?
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
+				printf("Card (type %d) initialized.\n", sdCard->sdcType);  // Debug indicator only!? or success event !?
 			} else {
 			    // TODO: replace by error event
-				printf("Errors %02X reading OCR.\n", SdCard[bus].sdcCmdResponse[1]);
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				printf("Errors %02X reading OCR.\n", sdCard->sdcCmdResponse[1]);
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_READ_SBCMD:
 			// TODO: how many bytes can a response be delayed (Spec says 0..8 / 1..8 depending of card Type !?
-			if ((SdCard[bus].sdcCmdResponse[1] == 0x00) || (SdCard[bus].sdcCmdResponse[2] == 0x00))  {
+			if ((sdCard->sdcCmdResponse[1] == 0x00) || (sdCard->sdcCmdResponse[2] == 0x00))  {
 				// Lets wait for the start data token.
-			    SdCard[bus].sdcCmdPending = true;
-			    SdCard[bus].nextStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA;
-				ADO_SSP_AddJob((uint32_t)(&SdCard[bus]), SdCard[bus].sdcBusNr, SdCard[bus].sdcCmdData, SdCard[bus].sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
+			    sdCard->sdcCmdPending = true;
+			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA;
+				ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
 			} else {
 			    // TODO: Signal Error event
-				printf("Error %02X %02X with read block command\n",SdCard[bus].sdcCmdResponse[1], SdCard[bus].sdcCmdResponse[2] );
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				printf("Error %02X %02X with read block command\n",sdCard->sdcCmdResponse[1], sdCard->sdcCmdResponse[2] );
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_READ_SBWAITDATA:
-			if (SdCard[bus].sdcCmdResponse[0] == 0xFE) {
+			if (sdCard->sdcCmdResponse[0] == 0xFE) {
 				// Now we can read all data bytes including 2byte CRC + 1 byte over-read as always to get the shift register in the card emptied....
-			    SdCard[bus].sdcCmdPending = true;
-			    SdCard[bus].nextStatus = ADO_SDC_CARDSTATUS_READ_SBDATA;
+			    sdCard->sdcCmdPending = true;
+			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_READ_SBDATA;
 			    // TOOD: the sdcCmdData is provided by CLI client. lets move this out later....
-				ADO_SSP_AddJob((uint32_t)(&SdCard[bus]),  SdCard[bus].sdcBusNr, SdCard[bus].sdcCmdData, sdcRwData, 0 , 515, DMAFinishedIRQ, ActivateCS);
+				ADO_SSP_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr, sdCard->sdcCmdData, sdcRwData, 0 , 515, DMAFinishedIRQ, ActivateCS);
 			} else {
 				// Wait some mainloops before asking for data token again.
-			    SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA2;
-			    SdCard[bus].sdcWaitLoops = 10;
+			    sdCard->sdcStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA2;
+			    sdCard->sdcWaitLoops = 10;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_READ_SBWAITDATA2:
-			if (SdCard[bus].sdcWaitLoops > 0) {
-			    SdCard[bus].sdcWaitLoops--;
-				if (SdCard[bus].sdcWaitLoops == 0) {
+			if (sdCard->sdcWaitLoops > 0) {
+			    sdCard->sdcWaitLoops--;
+				if (sdCard->sdcWaitLoops == 0) {
 					// Read 1 byte to check for data token
-				    SdCard[bus].sdcCmdPending = true;
-				    SdCard[bus].nextStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA;
-					ADO_SSP_AddJob((uint32_t)(&SdCard[bus]), SdCard[bus].sdcBusNr, SdCard[bus].sdcCmdData, SdCard[bus].sdcCmdResponse, 0 , 1,DMAFinishedIRQ,ActivateCS);
+				    sdCard->sdcCmdPending = true;
+				    sdCard->nextStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA;
+					ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1,DMAFinishedIRQ,ActivateCS);
 				}
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_READ_SBDATA:
 		{
-		    SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
+		    sdCard->sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
 
 		    // TODO: This is already CLI data processiong -> move out to _cli.c somehow - or keep the crc feature in here !?
 			uint16_t crc = CRC16_XMODEM(sdcRwData, 514);
@@ -379,66 +381,66 @@ void SdcMain(ado_sspid_t bus) {
 		}
 
 		case ADO_SDC_CARDSTATUS_WRITE_SBCMD:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x00) {
+			if (sdCard->sdcCmdResponse[1] == 0x00) {
 				// Now we can write all data bytes including 1 Start token and 2byte CRC. We expect 1 byte data response token....
-			    SdCard[bus].sdcCmdPending = true;
-			    SdCard[bus].nextStatus = ADO_SDC_CARDSTATUS_WRITE_SBDATA;
+			    sdCard->sdcCmdPending = true;
+			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_WRITE_SBDATA;
 				printf("\nw");      // Debug print only
 				// TODO: sdcReadWriteData is provided by CLI Client -> move this out later....
-				ADO_SSP_AddJob((uint32_t)(&SdCard[bus]),SdCard[bus].sdcBusNr, sdcRwData, SdCard[bus].sdcCmdResponse, 515 , 3, DMAFinishedIRQ, ActivateCS);
+				ADO_SSP_AddJob((uint32_t)(sdCard),sdCard->sdcBusNr, sdcRwData, sdCard->sdcCmdResponse, 515 , 3, DMAFinishedIRQ, ActivateCS);
 			} else {
 			    // TODO: signal error event
-				printf("Error %02X %02X with read block command\n",SdCard[bus].sdcCmdResponse[1],SdCard[bus].sdcCmdResponse[2] );
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				printf("Error %02X %02X with read block command\n",sdCard->sdcCmdResponse[1],sdCard->sdcCmdResponse[2] );
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_WRITE_SBDATA:
-			if ((SdCard[bus].sdcCmdResponse[0] & 0x1F) == 0x05) {
+			if ((sdCard->sdcCmdResponse[0] & 0x1F) == 0x05) {
 				// Data was accepted. now we wait until busy token is off again....
 				// Read 1 byte to check for busy token
-			    SdCard[bus].sdcCmdPending = true;
-			    SdCard[bus].nextStatus = ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT;
-				ADO_SSP_AddJob((uint32_t)(&SdCard[bus]),  SdCard[bus].sdcBusNr,  SdCard[bus].sdcCmdData,  SdCard[bus].sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
+			    sdCard->sdcCmdPending = true;
+			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT;
+				ADO_SSP_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr,  sdCard->sdcCmdData,  sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
 				printf("5");
 			} else {
 			    // TODO: signal error event
-				printf("Error %02X %02X with write data block\n",  SdCard[bus].sdcCmdResponse[0],  SdCard[bus].sdcCmdResponse[1] );
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				printf("Error %02X %02X with write data block\n",  sdCard->sdcCmdResponse[0],  sdCard->sdcCmdResponse[1] );
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT:
-			if ( SdCard[bus].sdcCmdResponse[0] == 0x00) {
+			if ( sdCard->sdcCmdResponse[0] == 0x00) {
 				// still busy !?
 				// Read 1 byte to check for busy token
 				// TODO: some mainloop wait here ....
-			    SdCard[bus].sdcCmdPending = true;
-			    SdCard[bus].nextStatus = ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT;
+			    sdCard->sdcCmdPending = true;
+			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT;
 				printf("o");
-				ADO_SSP_AddJob((uint32_t)(&SdCard[bus]), SdCard[bus].sdcBusNr, SdCard[bus].sdcCmdData, SdCard[bus].sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
+				ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
 			} else {
 				// busy is off now. Lets Check Status
 				// Send CMD13
-				SdcSendCommand(bus, ADO_SDC_CMD13_SEND_STATUS, ADO_SDC_CARDSTATUS_WRITE_CHECKSTATUS, 0);
+				SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD13_SEND_STATUS, ADO_SDC_CARDSTATUS_WRITE_CHECKSTATUS, 0);
 			}
 			break;
 
 		case ADO_SDC_CARDSTATUS_WRITE_CHECKSTATUS:
-			if (SdCard[bus].sdcCmdResponse[1] == 0x00) {
-			    SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
+			if (sdCard->sdcCmdResponse[1] == 0x00) {
+			    sdCard->sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
 				printf("!\n");  // debug only output os signal success event
 			} else {
 			    //TODO: signal error event
-				printf("Error %02X %02X answer to CMD13\n", SdCard[bus].sdcCmdResponse[1], SdCard[bus].sdcCmdResponse[2] );
-				SdCard[bus].sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
+				printf("Error %02X %02X answer to CMD13\n", sdCard->sdcCmdResponse[1], sdCard->sdcCmdResponse[2] );
+				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_ERROR;
 			}
 			break;
 
 		// Nothing needed here - only count down the main loop timer
 		case ADO_SDC_CARDSTATUS_INITIALIZED:
-			if (SdCard[bus].sdcWaitLoops > 0) {
-			    SdCard[bus].sdcWaitLoops--;
+			if (sdCard->sdcWaitLoops > 0) {
+			    sdCard->sdcWaitLoops--;
 			}
 			break;
 
@@ -447,7 +449,7 @@ void SdcMain(ado_sspid_t bus) {
 		}
 
 		// Now lets do other stuff in main loop
-		if (SdCard[bus].sdcWaitLoops == 0) {
+		if (sdCard->sdcWaitLoops == 0) {
 			// Do other stuff in Mainloop -> this is CLI move out later
 			if (sdcDumpLines > 0) {
 			    if (sdcDumpMode == ADO_SDC_DUMPMODE_RAW) {
@@ -466,7 +468,7 @@ void SdcMain(ado_sspid_t bus) {
                     asci[32] = 0;
                     hex[96] = 0;
                     printf("%03X-%08X: %s %s\n", (sdcCurRwBlockNr>>23), (sdcCurRwBlockNr<<9) + 32*(16-sdcDumpLines), hex, asci);
-                    SdCard[bus].sdcWaitLoops = 3000;
+                    sdCard->sdcWaitLoops = 3000;
                     sdcDumpLines--;
 			    } else if (sdcDumpMode == ADO_SDC_DUMPMODE_FAT_BL0) {
 			        if (sdcEditBlock[0x1fe] == 0x55 && sdcEditBlock[0x1ff] == 0xAA) {
@@ -495,7 +497,7 @@ void SdcMain(ado_sspid_t bus) {
                             }
                             if (bootSector != 0) {
                                 sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BOOTSECTOR;
-                                SdcReadBlock(SdCard[bus].sdcBusNr, bootSector);
+                                SdcReadBlock(sdCard->sdcBusNr, bootSector);
                             }
 			            }
 			        } else {
@@ -606,113 +608,163 @@ void SdcSendCommand(ado_sspid_t bus, ado_sdc_cmd_t cmd, uint32_t jobContext, uin
 
 
 
-void SdcInitCmd(int argc, char *argv[]) {
-	LPC_SSP_T *sspBase = 0;
-	ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+//void SdcInitCmd(int argc, char *argv[]) {
+//	LPC_SSP_T *sspBase = 0;
+//	ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+//
+//	if (sdcBusNr == ADO_SSP0) {
+//		sspBase = LPC_SSP0;
+//	} else if  (sdcBusNr == ADO_SSP1) {
+//		sspBase = LPC_SSP1;
+//	}
+//	if (sspBase != 0) {
+//	    // Reset module state and initiate the card init sequence
+//	    SdCard[sdcBusNr].sdcType = ADO_SDC_CARD_UNKNOWN;
+//		SdCard[sdcBusNr].sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
+//		SdcSendCommand(sdcBusNr, ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET, 0);
+//	}
+//}
+//
+//
+//void SdcReadCmd(int argc, char *argv[]){
+//	uint32_t arg = 0;
+//	ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+//
+//	if (argc > 0) {
+//		//adr = atoi(argv[0]);
+//		sdcCurRwBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
+//	}
+//	if (SdCard[sdcBusNr].sdcType == ADO_SDC_CARD_20SD) {
+//		// SD Cards take byte addresses as argument
+//		arg = sdcCurRwBlockNr << 9;
+//	} else {
+//		// 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
+//		arg = sdcCurRwBlockNr;
+//	}
+//
+//	if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+//	    sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
+//		SdcSendCommand(sdcBusNr, ADO_SDC_CMD17_READ_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_READ_SBCMD, arg);
+//	} else {
+//		printf("Card not ready to receive commands....\n");
+//	}
+//}
+//
+//void SdcWriteCmd(int argc, char *argv[]) {
+//    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+//
+//	sdcRwData[0] = 0xFE;							// Data Block Start token
+//	memcpy(sdcRwData + 1, sdcEditBlock, 512);
+//	uint16_t crc = CRC16_XMODEM(sdcRwData, 512);
+//	sdcRwData[513] = (uint8_t)(crc >> 8);
+//	sdcRwData[514] = (uint8_t)crc;
+//
+//	if (argc > 0) {
+//		 sdcCurRwBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
+//	}
+//
+//	if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+//	    sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
+//		SdcSendCommand(sdcBusNr, ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, sdcCurRwBlockNr);
+//	} else {
+//		printf("Card not ready to receive commands....\n");
+//	}
+//
+//}
+//
+//void SdcEditCmd(int argc, char *argv[]) {
+//    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+//
+//    uint16_t adr = 0;
+//	char *content = "Test Edit from LPC1769";
+//
+//	if (argc > 0) {
+//		 adr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
+//		 adr &= 0x01FF;
+//	}
+//
+//	if (argc > 1) {
+//		content = argv[1];
+//	}
+//
+//	int i = 0;
+//	for (uint8_t *ptr = (uint8_t*)(sdcEditBlock + adr); ptr < (uint8_t*)(sdcEditBlock + adr + strlen(content)); ptr++) {
+//		if (ptr < (sdcEditBlock + 512)) {
+//			*ptr = content[i++];
+//		}
+//	}
+//	printf("Block modified: \n");
+//	sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
+//	SdCard[sdcBusNr].sdcWaitLoops = 1000;
+//	sdcDumpLines = 16;
+//}
+//
+//void SdcCheckFatCmd(int argc, char *argv[]) {
+//    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+//
+//    if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+////        uint32_t arg;
+////        sdcCurRwBlockNr = 0;
+////        if (sdcType == ADO_SDC_CARD_20SD) {
+////            // SD Cards take byte addresses as argument
+////            arg = sdcCurRwBlockNr << 9;
+////        } else {
+////            // 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
+////            arg = sdcCurRwBlockNr;
+////        }
+//        sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BL0;
+//        SdcReadBlock(sdcBusNr, 0);
+//    } else {
+//        printf("Card not ready to receive commands....\n");
+//    }
+//}
 
-	if (sdcBusNr == ADO_SSP0) {
-		sspBase = LPC_SSP0;
-	} else if  (sdcBusNr == ADO_SSP1) {
-		sspBase = LPC_SSP1;
-	}
-	if (sspBase != 0) {
-	    // Reset module state and initiate the card init sequence
-	    SdCard[sdcBusNr].sdcType = ADO_SDC_CARD_UNKNOWN;
-		SdCard[sdcBusNr].sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
-		SdcSendCommand(sdcBusNr, ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET, 0);
-	}
+
+void SdcCardinitialize(void *cardPtr){
+    // Reset module state and initiate the card init sequence
+    ado_sdcard_t *sdCard = (ado_sdcard_t *)cardPtr;
+    sdCard->sdcType = ADO_SDC_CARD_UNKNOWN;
+    sdCard->sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
+    SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET, 0);
 }
 
+void SdcReadBlockAsync(void *cardPtr, uint32_t blockNr, uint8_t *data,  void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
+    ado_sdcard_t *sdCard = (ado_sdcard_t *)cardPtr;
+    uint32_t arg = 0;
 
-void SdcReadCmd(int argc, char *argv[]){
-	uint32_t arg = 0;
-	ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+    if (sdCard->sdcType == ADO_SDC_CARD_20SD) {
+          // SD Cards take byte addresses as argument
+          arg = blockNr << 9;
+      } else {
+          // 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
+          arg = blockNr;
+      }
 
-	if (argc > 0) {
-		//adr = atoi(argv[0]);
-		sdcCurRwBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
-	}
-	if (SdCard[sdcBusNr].sdcType == ADO_SDC_CARD_20SD) {
-		// SD Cards take byte addresses as argument
-		arg = sdcCurRwBlockNr << 9;
-	} else {
-		// 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
-		arg = sdcCurRwBlockNr;
-	}
-
-	if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
-	    sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-		SdcSendCommand(sdcBusNr, ADO_SDC_CMD17_READ_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_READ_SBCMD, arg);
-	} else {
-		printf("Card not ready to receive commands....\n");
-	}
+      if (sdCard->sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+          sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
+          SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD17_READ_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_READ_SBCMD, arg);
+      } else {
+          finishedHandler(SDC_RES_ERROR, blockNr, 0, 0);
+      }
 }
 
-void SdcWriteCmd(int argc, char *argv[]) {
-    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
+void SdcWriteBlockAsync(void *cardPtr, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
+    ado_sdcard_t *sdCard = (ado_sdcard_t *)cardPtr;
+    uint32_t arg = 0;
 
-	sdcRwData[0] = 0xFE;							// Data Block Start token
-	memcpy(sdcRwData + 1, sdcEditBlock, 512);
-	uint16_t crc = CRC16_XMODEM(sdcRwData, 512);
-	sdcRwData[513] = (uint8_t)(crc >> 8);
-	sdcRwData[514] = (uint8_t)crc;
+    if (sdCard->sdcType == ADO_SDC_CARD_20SD) {
+          // SD Cards take byte addresses as argument
+          arg = blockNr << 9;
+      } else {
+          // 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
+          arg = blockNr;
+      }
 
-	if (argc > 0) {
-		 sdcCurRwBlockNr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
-	}
 
-	if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
-	    sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-		SdcSendCommand(sdcBusNr, ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, sdcCurRwBlockNr);
-	} else {
-		printf("Card not ready to receive commands....\n");
-	}
-
-}
-
-void SdcEditCmd(int argc, char *argv[]) {
-    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-
-    uint16_t adr = 0;
-	char *content = "Test Edit from LPC1769";
-
-	if (argc > 0) {
-		 adr = strtol(argv[0], NULL, 0);		//This allows '0x....' hex entry!
-		 adr &= 0x01FF;
-	}
-
-	if (argc > 1) {
-		content = argv[1];
-	}
-
-	int i = 0;
-	for (uint8_t *ptr = (uint8_t*)(sdcEditBlock + adr); ptr < (uint8_t*)(sdcEditBlock + adr + strlen(content)); ptr++) {
-		if (ptr < (sdcEditBlock + 512)) {
-			*ptr = content[i++];
-		}
-	}
-	printf("Block modified: \n");
-	sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-	SdCard[sdcBusNr].sdcWaitLoops = 1000;
-	sdcDumpLines = 16;
-}
-
-void SdcCheckFatCmd(int argc, char *argv[]) {
-    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-
-    if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
-//        uint32_t arg;
-//        sdcCurRwBlockNr = 0;
-//        if (sdcType == ADO_SDC_CARD_20SD) {
-//            // SD Cards take byte addresses as argument
-//            arg = sdcCurRwBlockNr << 9;
-//        } else {
-//            // 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
-//            arg = sdcCurRwBlockNr;
-//        }
-        sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BL0;
-        SdcReadBlock(sdcBusNr, 0);
-    } else {
-        printf("Card not ready to receive commands....\n");
-    }
+    if (sdCard->sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
+          sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
+          SdcSendCommand(sdCard->sdcBusNr, ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, arg);
+      } else {
+          finishedHandler(SDC_RES_ERROR, blockNr, 0, 0);
+      }
 }
