@@ -13,7 +13,8 @@
 typedef enum sdc_res_e
 {
     SDC_RES_SUCCESS = 0,
-    SDC_RES_ERROR
+    SDC_RES_ERROR,
+    SDC_RES_CRCERROR
 } sdc_res_t;
 
 // ADO Mudule API

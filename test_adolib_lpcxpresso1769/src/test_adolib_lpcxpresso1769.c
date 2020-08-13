@@ -178,6 +178,7 @@ int main(void) {
 		CliMain();
 		SdcMain(card0);
 		SdcMain(card1);
+		AdoCliMain();
 		LogMain();
 		MramMain();
 	}

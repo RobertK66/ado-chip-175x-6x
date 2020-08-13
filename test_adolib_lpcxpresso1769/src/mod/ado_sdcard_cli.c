@@ -28,15 +28,79 @@ static void **sdCards;
 static int  cardCnt = 0;
 static void *selectedCard = 0;
 
+
+
+typedef struct partitionInfo_Structure {
+    uint8_t         status;             //0x80 - active partition
+    uint8_t         headStart;          //starting head
+    uint16_t        cylSectStart;       //starting cylinder and sector.
+    uint8_t         type;               //partition type
+    uint8_t         headEnd;            //ending head of the partition
+    uint16_t        cylSectEnd;         //ending cylinder and sector
+    uint32_t        firstSector;        //total sectors between MBR & the first sector of the partition
+    uint32_t        sectorsTotal;       //size of this partition in sectors
+} __attribute__((packed)) partitionInfo_t;
+
+
+typedef struct MBRinfo_Structure {
+    unsigned char    nothing[440];          // ignore, placed here to fill the gap in the structure
+    uint32_t         devSig;                // Device Signature (for Windows)
+    uint16_t         filler;                // 0x0000
+    partitionInfo_t  partitionData[4];      // partition records (16x4)
+    uint16_t         signature;             // 0xaa55
+} __attribute__((packed))  MBRinfo_t ;
+
+
+
+
+//Structure to access volume boot sector data (its sector 0 on unpartitioned devices or the first sector of a partition)
+typedef struct bootSector_S {
+    uint8_t jumpBoot[3];
+    uint8_t OEMName[8];
+    // FAT-BIOS Param Block common part (DOS2.0)
+    uint16_t bytesPerSector;             // default: 512
+    uint8_t  sectorPerCluster;           // 1,2,4,8,16,...
+    uint16_t reservedSectorCount;        // 32 for FAT32 ?
+    uint8_t  numberofFATs;               // 2 ('almost always')
+    uint16_t rootEntryCount;             // 0 for FAT32
+    uint16_t totalSectors_F16;           // 0 for FAT32
+    uint8_t mediaType;
+    uint16_t FATsize_F16;                // 0 for FAT32
+    // DOS3.31 extensions
+    uint16_t sectorsPerTrack;
+    uint16_t numberofHeads;
+    uint32_t hiddenSectors;
+    uint32_t totalSectors_F32;
+    // FAT32 Extended Bios Param Block
+    uint32_t FATsize_F32;               // count of sectors occupied by one FAT
+    uint16_t extFlags;
+    uint16_t FSversion;                 // 0x0000 (defines version 0.0)
+    uint32_t rootCluster;               // first cluster of root directory (=2)
+    uint16_t FSinfo;                    // sector number of FSinfo structure (=1)
+    uint16_t BackupBootSector;
+    uint8_t  reserved[12];
+    // FAT16 Extended Bios Param Block (offset moved by F32 Extensions)
+    uint8_t  driveNumber;
+    uint8_t  reserved1;
+    uint8_t  bootSignature;
+    uint32_t volumeID;
+    uint8_t  volumeLabel[11];           // "NO NAME "
+    uint8_t  fileSystemType[8];         // "FAT32"
+    uint8_t  bootData[420];
+    uint16_t signature;                 // 0xaa55
+} __attribute__((packed)) bootSector_t;
+
+
 #define ADO_SDC_DUMPMODE_RAW             0
 #define ADO_SDC_DUMPMODE_FAT_BL0         1
 #define ADO_SDC_DUMPMODE_FAT_BOOTSECTOR  2
 
 uint16_t         sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
 uint16_t         sdcDumpLines = 0;
-uint32_t      sdcCurRwBlockNr;
-uint8_t           sdcRwData[520];
-uint8_t           sdcEditBlock[512];
+uint32_t         sdcCurRwBlockNr;
+uint8_t          sdcRwData[520];
+uint8_t          sdcEditBlock[512];
+uint16_t         sdcWaitLoops = 0;
 
 
 void AdoSdcardCliInit(int cardC, void *cardV[]) {
@@ -87,11 +151,15 @@ void SdcInitCmd(int argc, char *argv[]) {
 
 void SdcReadBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
     if (result == SDC_RES_SUCCESS) {
-        printf("Block read success\n");
+        printf("Block Nr  %08X read success.\n", blockNr);
         // -> trigger dump
+        memcpy(sdcEditBlock, data, 512);
+        sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
+        sdcWaitLoops = 1000;
+        sdcDumpLines = 16;
     } else {
         // TODO or any other errors .....
-        printf("Card not ready to receive commands....\n");
+        printf("Card error....\n");
     }
 }
 
@@ -124,11 +192,11 @@ void SdcReadCmd(int argc, char *argv[]){
 
 void SdcWriteBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
     if (result == SDC_RES_SUCCESS) {
-        printf("Block write success\n");
+        printf("Block Nr  %08X write success.\n", blockNr);
         // -> trigger dump
     } else {
         // TODO or any other errors .....
-        printf("Card not ready to receive commands....\n");
+        printf("Card error....\n");
     }
 }
 
@@ -178,24 +246,43 @@ void SdcEditCmd(int argc, char *argv[]) {
             *ptr = content[i++];
         }
     }
-    printf("Block modified: \n");
+    printf("Block modified.\n");
     sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-    //SdCard[sdcBusNr].sdcWaitLoops = 1000;
+    sdcWaitLoops = 1000;
     sdcDumpLines = 16;
 }
 
 void SdcReadFATBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
     if (result == SDC_RES_SUCCESS) {
-        printf("FAT Block read success\n");
+        printf("FAT Block %08X read success.\n\n", blockNr);
         // -> trigger dump
+        memcpy(sdcEditBlock, data, 512);
+        sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BL0;
+        sdcWaitLoops = 1000;
+        sdcDumpLines = 16;
     } else {
         // TODO or any other errors .....
         printf("Card not ready to receive commands....\n");
     }
 }
 
-void SdcCheckFatCmd(int argc, char *argv[]) {
 
+void SdcReadFATBootSectorBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
+    if (result == SDC_RES_SUCCESS) {
+        printf("\nFAT Boot Sector %08X read success\n", blockNr);
+        // -> trigger dump
+        memcpy(sdcEditBlock, data, 512);
+        sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BOOTSECTOR;
+        sdcWaitLoops = 1000;
+        sdcDumpLines = 16;
+    } else {
+        // TODO or any other errors .....
+        printf("Card not ready to receive commands....\n");
+    }
+}
+
+
+void SdcCheckFatCmd(int argc, char *argv[]) {
     SdcReadBlockAsync(selectedCard, 0, sdcRwData, SdcReadFATBlockFinished);
 
 //    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
@@ -217,3 +304,89 @@ void SdcCheckFatCmd(int argc, char *argv[]) {
 //    }
 }
 
+
+
+void AdoCliMain(void) {
+    if (sdcWaitLoops == 0) {
+          // Do other stuff in Mainloop -> this is CLI move out later
+          if (sdcDumpLines > 0) {
+              if (sdcDumpMode == ADO_SDC_DUMPMODE_RAW) {
+                    uint8_t *ptr = &sdcEditBlock[32*(16-sdcDumpLines)];
+                    char hex[100];
+                    char asci[33];
+                    for (int i=0;i<32;i++) {
+                        char c = *(ptr+i);
+                        sprintf(&hex[i*3],"%02X ", c);
+                        if (c > 0x20) {
+                            asci[i] = c;
+                        } else {
+                            asci[i] = '.';
+                        }
+                    }
+                    asci[32] = 0;
+                    hex[96] = 0;
+                    printf("%03X-%08X: %s %s\n", (sdcCurRwBlockNr>>23), (sdcCurRwBlockNr<<9) + 32*(16-sdcDumpLines), hex, asci);
+                    sdcWaitLoops = 3000;
+                    sdcDumpLines--;
+              } else if (sdcDumpMode == ADO_SDC_DUMPMODE_FAT_BL0) {
+                  if (sdcEditBlock[0x1fe] == 0x55 && sdcEditBlock[0x1ff] == 0xAA) {
+                      if ((sdcEditBlock[0] == 0xE9) || (sdcEditBlock[0] == 0xEB)) {
+                          // This looks like a 'Boot Sector' - so its an 'unpartitioned' card.
+                          sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BOOTSECTOR;
+                          return;     // Skip to other Dumpmode with next call.
+                      } else {
+                          // This is no Boot Sector.Then it should be a 'Master Boot Record'.
+                            MBRinfo_t *p = (MBRinfo_t *)sdcEditBlock;
+                            uint32_t  bootSector = 0;
+                            printf("MBR-Sign: %04X DevSig: %08X\n", p->signature, p->devSig);
+                            for (int i=3; i>-1; i--) {
+                                if ( p->partitionData[i].type != 0x00) {
+                                    printf("MBR-Part[%d]-Status      : %02X\n", i, p->partitionData[i].status);
+                                    printf("MBR-Part[%d]-Type        : %02X\n", i, p->partitionData[i].type);
+                                    printf("MBR-Part[%d]-FirstSector : %08X\n", i, p->partitionData[i].firstSector);
+                                    printf("MBR-Part[%d]-SectorsTotal: %08X\n", i, p->partitionData[i].sectorsTotal);
+                                    printf("MBR-Part[%d]-CHS Start: %02X %04X\n", i, p->partitionData[i].headStart, p->partitionData[i].cylSectStart );
+                                    printf("MBR-Part[%d]-CHS End  : %02X %04X\n", i, p->partitionData[i].headEnd, p->partitionData[i].cylSectEnd );
+                                    // We use 'lowest partition' boot sector to continue FAT analysis.
+                                    bootSector =  p->partitionData[i].firstSector;
+                                } else {
+                                    printf("MBR-Part[%d]: empty\n", i);
+                                }
+                            }
+                            if (bootSector != 0) {
+                                //sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BOOTSECTOR;
+                                SdcReadBlockAsync(selectedCard, bootSector, sdcRwData, SdcReadFATBootSectorBlockFinished);
+
+//                                SdcReadBlock(sdCard->sdcBusNr, bootSector);
+                            }
+                      }
+                  } else {
+                      printf("This block does not contain Boot Block marker!\n");
+                  }
+                  sdcDumpLines = 0;
+              } else if (sdcDumpMode == ADO_SDC_DUMPMODE_FAT_BOOTSECTOR) {
+                  bootSector_t *p = (bootSector_t *)sdcEditBlock;
+
+                  if (((sdcEditBlock[0] == 0xE9) || (sdcEditBlock[0] == 0xEB)) &&
+                       p->signature == 0xAA55) {
+                       // This is a valid 'Boot Sector'
+                     printf("FS     : %0.8s\n", p->fileSystemType);
+                     printf("OEMName: %0.8s\n", p->OEMName);
+                     printf("%d Sectors (%d bytes) per cluster\n", p->sectorPerCluster, p->bytesPerSector);
+
+                     printf("hidden : %08X total: %08X\n", p->hiddenSectors, p->totalSectors_F32);
+                     printf("res : %04X rootCl: %08X rootEntryCnt: %04X\n", p->reservedSectorCount, p->rootCluster, p->rootEntryCount);
+                     printf("NrFAT : %02X FATSize: %08X \n", p->numberofFATs, p->FATsize_F32);
+
+                     printf("-> first Data Sector: %08X\n",  p->hiddenSectors +  p->reservedSectorCount + p->numberofFATs * p->FATsize_F32);
+
+                   } else {
+                       printf("This Block contains no Boot Sector!\n");
+                   }
+                 sdcDumpLines = 0;
+              }
+          }
+      } else {
+          sdcWaitLoops--;
+      }
+}
