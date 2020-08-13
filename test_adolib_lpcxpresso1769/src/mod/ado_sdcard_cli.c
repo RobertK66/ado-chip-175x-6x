@@ -24,12 +24,17 @@ void SdcEditCmd(int argc, char *argv[]);
 void SdcWriteCmd(int argc, char *argv[]);
 void SdcCheckFatCmd(int argc, char *argv[]);
 
-static void **sdCards;
-static int  cardCnt = 0;
-static void *selectedCard = 0;
+// CLI Callback Prototypes
+void SdcReadBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len);
+void SdcWriteBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len);
+void SdcReadFATBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len);
+void SdcReadFATBootSectorBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len);
 
+static int  cardCnt = 0;            // Count of available cards
+static void **sdCards;              // Pointers to available sdCards
+static void *selectedCard = 0;      // Currently selected card (pointer)
 
-
+// FAT32 defines
 typedef struct partitionInfo_Structure {
     uint8_t         status;             //0x80 - active partition
     uint8_t         headStart;          //starting head
@@ -41,7 +46,6 @@ typedef struct partitionInfo_Structure {
     uint32_t        sectorsTotal;       //size of this partition in sectors
 } __attribute__((packed)) partitionInfo_t;
 
-
 typedef struct MBRinfo_Structure {
     unsigned char    nothing[440];          // ignore, placed here to fill the gap in the structure
     uint32_t         devSig;                // Device Signature (for Windows)
@@ -49,9 +53,6 @@ typedef struct MBRinfo_Structure {
     partitionInfo_t  partitionData[4];      // partition records (16x4)
     uint16_t         signature;             // 0xaa55
 } __attribute__((packed))  MBRinfo_t ;
-
-
-
 
 //Structure to access volume boot sector data (its sector 0 on unpartitioned devices or the first sector of a partition)
 typedef struct bootSector_S {
@@ -90,24 +91,29 @@ typedef struct bootSector_S {
     uint16_t signature;                 // 0xaa55
 } __attribute__((packed)) bootSector_t;
 
+uint8_t          sdcRwData[520];        // The Client Buffer for Writing and reading to a SDCard. Currently we need 512+3 bytes here (1 token + 2checksum bytes)
+uint8_t          sdcEditBlock[512];     // This is the place where we show/dump received block and edit it in RAM for the writeBlock command,
 
+// Variables/Defines to control the CLI output fordistributing and delaying the lines with help of mainloop.
+// TODO: -> move to CLI as general feature !?
 #define ADO_SDC_DUMPMODE_RAW             0
 #define ADO_SDC_DUMPMODE_FAT_BL0         1
 #define ADO_SDC_DUMPMODE_FAT_BOOTSECTOR  2
 
+uint16_t         sdcWaitLoops = 0;
 uint16_t         sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
 uint16_t         sdcDumpLines = 0;
 uint32_t         sdcCurRwBlockNr;
-uint8_t          sdcRwData[520];
-uint8_t          sdcEditBlock[512];
-uint16_t         sdcWaitLoops = 0;
 
 
 void AdoSdcardCliInit(int cardC, void *cardV[]) {
     if (cardC>0) {
+        // Lets remember the array of SdCardPointers
         cardCnt = cardC;
         sdCards = cardV;
+        // switch to the first card in Array
         selectedCard = sdCards[0];
+
         CliRegisterCommand("sdcCard", SdcSwitchCardCmd);
         CliRegisterCommand("sdcInit", SdcInitCmd);
         CliRegisterCommand("sdcRead", SdcReadCmd);
@@ -127,107 +133,58 @@ void SdcSwitchCardCmd(int argc, char *argv[]) {
     }
 }
 
-
 void SdcInitCmd(int argc, char *argv[]) {
-//    LPC_SSP_T *sspBase = 0;
-//    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-//
-//    if (sdcBusNr == ADO_SSP0) {
-//        sspBase = LPC_SSP0;
-//    } else if  (sdcBusNr == ADO_SSP1) {
-//        sspBase = LPC_SSP1;
-//    }
     if (selectedCard != 0) {
-        // Reset module state and initiate the card init sequence
-//        SdcCardinitialize(selectedCard);
-//        SdCard[sdcBusNr].sdcType = ADO_SDC_CARD_UNKNOWN;
-//        SdCard[sdcBusNr].sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
-//        SdcSendCommand(sdcBusNr, ADO_SDC_CMD0_GO_IDLE_STATE, ADO_SDC_CARDSTATUS_INIT_RESET, 0);
         SdcCardinitialize(selectedCard);
     }
 }
 
 
+void SdcReadCmd(int argc, char *argv[]){
+    if (argc > 0) {
+        sdcCurRwBlockNr = strtol(argv[0], NULL, 0);     //This allows '0x....' hex entry!
+    }
+    SdcReadBlockAsync(selectedCard, sdcCurRwBlockNr, sdcRwData, SdcReadBlockFinished);
+}
 
 void SdcReadBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
     if (result == SDC_RES_SUCCESS) {
         printf("Block Nr  %08X read success.\n", blockNr);
-        // -> trigger dump
+        // -> keep data and trigger CLI dump
         memcpy(sdcEditBlock, data, 512);
         sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
         sdcWaitLoops = 1000;
         sdcDumpLines = 16;
     } else {
-        // TODO or any other errors .....
-        printf("Card error....\n");
-    }
-}
-
-void SdcReadCmd(int argc, char *argv[]){
-   // uint32_t arg = 0;
-   // ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-
-    if (argc > 0) {
-        //adr = atoi(argv[0]);
-        sdcCurRwBlockNr = strtol(argv[0], NULL, 0);     //This allows '0x....' hex entry!
-    }
-
-    SdcReadBlockAsync(selectedCard, sdcCurRwBlockNr, sdcRwData, SdcReadBlockFinished);
-
-//    if (SdCard[sdcBusNr].sdcType == ADO_SDC_CARD_20SD) {
-//        // SD Cards take byte addresses as argument
-//        arg = sdcCurRwBlockNr << 9;
-//    } else {
-//        // 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
-//        arg = sdcCurRwBlockNr;
-//    }
-//
-//    if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
-//        sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-//        SdcSendCommand(sdcBusNr, ADO_SDC_CMD17_READ_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_READ_SBCMD, arg);
-//    } else {
-//        printf("Card not ready to receive commands....\n");
-//    }
-}
-
-void SdcWriteBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
-    if (result == SDC_RES_SUCCESS) {
-        printf("Block Nr  %08X write success.\n", blockNr);
-        // -> trigger dump
-    } else {
-        // TODO or any other errors .....
+        // TODO: check for types of errors .....
         printf("Card error....\n");
     }
 }
 
 void SdcWriteCmd(int argc, char *argv[]) {
-   // ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-
-    sdcRwData[0] = 0xFE;                            // Data Block Start token
+    // Prepare the write data. TODO: move to biniary part of module!
+    sdcRwData[0] = 0xFE;                            // Data Block Start token.
     memcpy(sdcRwData + 1, sdcEditBlock, 512);
     uint16_t crc = CRC16_XMODEM(sdcRwData, 512);
     sdcRwData[513] = (uint8_t)(crc >> 8);
     sdcRwData[514] = (uint8_t)crc;
 
     if (argc > 0) {
-         sdcCurRwBlockNr = strtol(argv[0], NULL, 0);        //This allows '0x....' hex entry!
+        sdcCurRwBlockNr = strtol(argv[0], NULL, 0);        //This allows '0x....' hex entry!
     }
-
     SdcWriteBlockAsync(selectedCard, sdcCurRwBlockNr, sdcRwData, SdcWriteBlockFinished);
+}
 
-//
-//    if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
-//        sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
-//        SdcSendCommand(sdcBusNr, ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, sdcCurRwBlockNr);
-//    } else {
-//        printf("Card not ready to receive commands....\n");
-//    }
-
+void SdcWriteBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
+    if (result == SDC_RES_SUCCESS) {
+        printf("Block Nr  %08X write success.\n", blockNr);
+    } else {
+        // TODO or any other errors .....
+        printf("Card error....\n");
+    }
 }
 
 void SdcEditCmd(int argc, char *argv[]) {
-    //ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-
     uint16_t adr = 0;
     char *content = "Test Edit from LPC1769";
 
@@ -246,10 +203,17 @@ void SdcEditCmd(int argc, char *argv[]) {
             *ptr = content[i++];
         }
     }
+
     printf("Block modified.\n");
+    // Triger dump of modified data in RAM.
     sdcDumpMode = ADO_SDC_DUMPMODE_RAW;
     sdcWaitLoops = 1000;
     sdcDumpLines = 16;
+}
+
+void SdcCheckFatCmd(int argc, char *argv[]) {
+    // Read Block 0 and analyse if its a BOOT sector or a Partition Table.
+    SdcReadBlockAsync(selectedCard, 0, sdcRwData, SdcReadFATBlockFinished);
 }
 
 void SdcReadFATBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
@@ -262,11 +226,11 @@ void SdcReadFATBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data,
         sdcDumpLines = 16;
     } else {
         // TODO or any other errors .....
-        printf("Card not ready to receive commands....\n");
+        printf("Card error.\n");
     }
 }
 
-
+// The according SdcReadBlockAsync is triggered after dump of FAT partition table is finished.
 void SdcReadFATBootSectorBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
     if (result == SDC_RES_SUCCESS) {
         printf("\nFAT Boot Sector %08X read success\n", blockNr);
@@ -277,35 +241,11 @@ void SdcReadFATBootSectorBlockFinished (sdc_res_t result, uint32_t blockNr, uint
         sdcDumpLines = 16;
     } else {
         // TODO or any other errors .....
-        printf("Card not ready to receive commands....\n");
+        printf("Card error.\n");
     }
 }
 
-
-void SdcCheckFatCmd(int argc, char *argv[]) {
-    SdcReadBlockAsync(selectedCard, 0, sdcRwData, SdcReadFATBlockFinished);
-
-//    ado_sspid_t sdcBusNr = ADO_SSP1; // TODO: allow CLI for both SDCards
-//
-//    if (SdCard[sdcBusNr].sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
-////        uint32_t arg;
-////        sdcCurRwBlockNr = 0;
-////        if (sdcType == ADO_SDC_CARD_20SD) {
-////            // SD Cards take byte addresses as argument
-////            arg = sdcCurRwBlockNr << 9;
-////        } else {
-////            // 2.0 HC or XC take block addressing with fixed 512 byte blocks as argument
-////            arg = sdcCurRwBlockNr;
-////        }
-//        sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BL0;
-//        SdcReadBlock(sdcBusNr, 0);
-//    } else {
-//        printf("Card not ready to receive commands....\n");
-//    }
-}
-
-
-
+// This is a temporary place to have a mainloop handling the dump feature. Will be moved to CLI Module later on....
 void AdoCliMain(void) {
     if (sdcWaitLoops == 0) {
           // Do other stuff in Mainloop -> this is CLI move out later
@@ -354,10 +294,8 @@ void AdoCliMain(void) {
                                 }
                             }
                             if (bootSector != 0) {
-                                //sdcDumpMode = ADO_SDC_DUMPMODE_FAT_BOOTSECTOR;
+                                // Trigger read of boot sektor
                                 SdcReadBlockAsync(selectedCard, bootSector, sdcRwData, SdcReadFATBootSectorBlockFinished);
-
-//                                SdcReadBlock(sdCard->sdcBusNr, bootSector);
                             }
                       }
                   } else {
