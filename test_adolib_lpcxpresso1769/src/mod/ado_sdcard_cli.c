@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 // Command Prototypes
+void SdcSwitchCardCmd(int argc, char *argv[]);
 void SdcInitCmd(int argc, char *argv[]);
 void SdcReadCmd(int argc, char *argv[]);
 void SdcEditCmd(int argc, char *argv[]);
@@ -43,6 +44,7 @@ void AdoSdcardCliInit(int cardC, void *cardV[]) {
         cardCnt = cardC;
         sdCards = cardV;
         selectedCard = sdCards[0];
+        CliRegisterCommand("sdcCard", SdcSwitchCardCmd);
         CliRegisterCommand("sdcInit", SdcInitCmd);
         CliRegisterCommand("sdcRead", SdcReadCmd);
         CliRegisterCommand("sdcEdit", SdcEditCmd);
@@ -50,6 +52,17 @@ void AdoSdcardCliInit(int cardC, void *cardV[]) {
         CliRegisterCommand("sdcFAT", SdcCheckFatCmd);
     }
 }
+
+void SdcSwitchCardCmd(int argc, char *argv[]) {
+    if (argc == 1) {
+        int cardNr = atoi(argv[0]);
+        if ((cardNr >= 0) && (cardNr < cardCnt)) {
+            selectedCard = sdCards[cardNr];
+            printf("SDCard %d selected.\n", cardNr);
+        }
+    }
+}
+
 
 void SdcInitCmd(int argc, char *argv[]) {
 //    LPC_SSP_T *sspBase = 0;

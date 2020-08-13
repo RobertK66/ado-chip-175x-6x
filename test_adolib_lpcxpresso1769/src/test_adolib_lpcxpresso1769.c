@@ -147,10 +147,12 @@ int main(void) {
     ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
 	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 
+	void *card0 = SdcInit(ADO_SSP0, CsSdCard0);
 	void *card1 = SdcInit(ADO_SSP1, CsSdCard1);
-	void **cards = &(card1);
-
-	AdoSdcardCliInit(1, cards);
+	void *cards[2];
+	cards[0]= card0;
+	cards[1]= card1;
+	AdoSdcardCliInit(2, cards);
 
 	// 6 chip inits
 	MramInit(0,ADO_SSP1, CsMram3);
@@ -174,6 +176,7 @@ int main(void) {
 
 	while(1) {
 		CliMain();
+		SdcMain(card0);
 		SdcMain(card1);
 		LogMain();
 		MramMain();
