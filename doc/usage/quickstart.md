@@ -26,6 +26,8 @@
         1. to use one of these goto YourNewProject - Properties - C/C++Build - Settings - ToolSettings
         2. under MCU-Linker - Libraries edit the existing Library Search Path to:        "${workspace_loc:/ado_chip_175x_6x/TestConfig_2}" 
           
-    
+4.  as long as issue #20 not fixed: remove the call of  Chip_SystemInit() from sysinit.c and
+replace it with your initcode (taking care of oscillator and clock setup....
+
 4.  You can start developing and debugging your project in MCUXpresso as
     normally....
