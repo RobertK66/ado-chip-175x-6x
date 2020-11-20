@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+//#include <stdarg.h>
 
 #include <mod\cli.h>
 #include <ado_time.h>
@@ -44,6 +45,21 @@ static ado_timestamp nextSaveTime;
 
 static uint16_t eventsToStore = 0;
 static bool storeActive = false;
+
+
+
+// This allows to give a arbitrary parameter list for initializing any concrete 'subclass' of ado_event.
+// The initializer taking a va_arg* list must be provided in event callback variable.
+void InitializeAndLogEvent(ado_event_t *event, ...) {
+    va_list args;
+
+    va_start(args, event);
+    if (event->initializer != 0) {
+        event->initializer(event, &args);
+    }
+    va_end(args);
+    LogEvent(event);
+}
 
 
 void LogEvent(ado_event_t *event) {

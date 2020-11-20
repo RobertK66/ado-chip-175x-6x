@@ -11,6 +11,7 @@
 #include <Chip.h>
 
 #include <ado_time.h>
+#include <stdarg.h>
 
 // Event numbers are 16 bit
 typedef uint16_t ado_event_nr;
@@ -37,7 +38,10 @@ typedef enum ado_sys_event_e {
 
 
 // This is only the 'header of each concrete event. if data is available it follows directly as struct after this struct in memory.
+typedef struct ado_event_s  ado_event_t;
+
 typedef struct ado_event_s {
+    void        (*initializer)(ado_event_t *this, va_list *args);      // Poor mans OO. The Callback which takes care of all additional 'Constructor' paramaters.
     ado_timestamp timestamp;    // This always represents ms after reset! If the event gets persisted additional info is needed (e.g. ResetCounter and/or UTCOffset)!
                                 // If resetCounter is (persisted) accurate, then all events and their exact sequence are uniquely identifiable.
                                 // If there exists a valid UTCOffset to a specific Reset Counter all events of this 'Reset-epoch' can be assigned to an exact UTC-timestamp
@@ -64,6 +68,15 @@ ado_event_nr LogInitEventLogger(void);     // Returns the base EventNr For user 
 void LogMain(void);
 
 void LogEvent(ado_event_t *event);
+
+
+void InitializeAndLogEvent(ado_event_t *event, ...);
+
+// Convenient Makro to be used to log custom events with arbitrary init params.
+#define DefinedLogEvent(type, init, ...) { type event; \
+    event.baseEvent.initializer = init; \
+    InitializeAndLogEvent((ado_event_t *)&event, __VA_ARGS__); }
+
 
 
 #endif /* MOD_ADO_EVENTLOGGER_H_ */

@@ -8,7 +8,10 @@
 
 #include <stdio.h>
 #include <ado_crc.h>
+//#include <stdarg.h>
 #include "ado_sspdma.h"
+
+#include "ado_eventlogger.h"
 
 //SD commands, many of these are not used here
 typedef enum ado_sdc_cmd_e
@@ -80,6 +83,23 @@ typedef struct ado_sdcars_s {
 } ado_sdcard_t;
 
 
+
+// module events
+typedef struct ado_sdcardevent_initialized_s {
+    ado_event_t        baseEvent;
+    ado_sspid_t        sspBus;
+    ado_sdc_cardtype_t cardType;
+} ado_sdcardevent_initialized_t;
+
+void CreateSdCardEventInitialized(ado_event_t *event, va_list* args) {
+    event->eventDataSize = sizeof(ado_sdcardevent_initialized_t) - sizeof(ado_event_t);
+    ado_sdcardevent_initialized_t *e = (ado_sdcardevent_initialized_t *)event;
+    e->sspBus = va_arg(*args, int);
+    e->cardType = va_arg(*args, int);
+}
+
+
+
 // prototypes
 void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize);
 void SdcSendCommand(ado_sdcard_t *sdCard, ado_sdc_cmd_t cmd, uint32_t nextState, uint32_t arg);
@@ -108,7 +128,6 @@ void *SdcInit(ado_sspid_t bus,  void(*csHandler)(bool select)) {
 
 	return (void *)&SdCard[bus];
 }
-
 
 void SdcMain(void *pCard) {
     ado_sdcard_t *sdCard = (ado_sdcard_t *)pCard;
@@ -205,6 +224,10 @@ void SdcMain(void *pCard) {
 				}
 				sdCard->sdcStatus = ADO_SDC_CARDSTATUS_INITIALIZED;
 				printf("Card (type %d) initialized.\n", sdCard->sdcType);  // Debug indicator only!? or success event !? and/or Callback for Init!?
+
+				// Signal our custom event to event logger
+				DefinedLogEvent(ado_sdcardevent_initialized_t, CreateSdCardEventInitialized, sdCard->sdcBusNr, sdCard->sdcType);
+
 			} else {
 			    // TODO: replace by error event
 				printf("Errors %02X reading OCR.\n", sdCard->sdcCmdResponse[1]);
