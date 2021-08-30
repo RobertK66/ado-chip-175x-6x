@@ -84,11 +84,19 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA      */ // PAD8 	this connects to boards e2prom with address 0x50
 	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
 
-	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
-	//{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL - CS  	 */ // J2-13    the 'recommended' SSL/CS for SSP0
-	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC0 }, /* SSL - CS       */ // J2-13    the 'recommended' SSL/CS for SSP0 used as GPIO - CS has to be controlled by SW
-	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
-	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
+	// SSP0 Version on Pin 60-63
+//	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SSP SD card slot.
+//	//{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL - CS  	 */ // J2-13    the 'recommended' SSL/CS for SSP0
+//	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC0 }, /* SSL - CS       */ // J2-13    the 'recommended' SSL/CS for SSP0 used as GPIO - CS has to be controlled by SW
+//	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
+//	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
+
+	// SPI Version on Pin 60-63
+	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK            */ // J2-13    we use this to test SPI SD Card
+    { 0, 16, IOCON_MODE_INACT | IOCON_FUNC0 }, /* SSL - CS       */ // J2-13    SPI only uses the SSL pin when in slave mode. To use as CS for Master this is normal IO
+    { 0, 17, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MISO           */ // J2-12
+    { 0, 18, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MOSI           */ // J2-11
+
 
 	{ 0, 7, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 	*/  // J2-7	SSP1
 	//{ 0, 6, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 	*/  // J2-8 SSP1    SSL/CS controlled by SSP-HW function

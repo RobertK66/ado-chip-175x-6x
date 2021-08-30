@@ -77,8 +77,8 @@ typedef struct ado_sspjobs_s
 
 // local/module variables
 ado_sspjobs_t 	ado_sspjobs[2];		// One structure per SSP Master [0]:SSP0, [1]:SSP1
-uint8_t 		rxDummy;
-uint8_t 		txDummy = 0xFF;
+uint8_t 		rxDummy;            // used for both ssp as 'empty'/null destination
+uint8_t 		txDummy = 0xFF;     // used for both ssp as 'empty'/null source. has to be 0xFF!
 
 // Prototypes
 void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob);
@@ -244,7 +244,7 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 
 	if (newJob->ADO_SSP_JobActivated_IRQCallback != 0) {
 		// This could be used to activate a CS line other than the SSL of the SSP HW Unit.
-		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);			//TODO: Test this ...
+		newJob->ADO_SSP_JobActivated_IRQCallback(newJob->context);
 	}
 
 	// Adjust the rx/tx addresses and length in prepared dma control structures.
@@ -276,7 +276,6 @@ void ADO_SSP_InitiateDMA(ado_sspid_t sspId, ado_sspjob_t *newJob) {
 	//	( in its own _SGTransfer() routine !???) to avoid this 'mis-alignment' of block 1-2 if only one is used. Also performance should improve
 	//  with maybe less function calls needed to start it up.....
 	//
-	//  also Test this to work properly with second SSP channel!!!
 	//
 	if (newJob->txSize > 0) {
 		(pDmaTd+1)->src = (uint32_t)&(ADO_SSP_RegBase[sspId]->DR);

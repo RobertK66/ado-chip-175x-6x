@@ -17,6 +17,7 @@
 #include <ado_time.h>
 #include <ado_test.h>
 #include <ado_sspdma.h>
+#include <ado_spi.h>
 #include <stopwatch.h>
 #include <mod/cli.h>
 #include <ado_crc.h>
@@ -144,10 +145,12 @@ int main(void) {
 	// SSPx init:
 	// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
 	// My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
-    ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
+    //ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
+	ADO_SPI_Init(0x08, SPI_CLOCK_MODE3);                                   // Clock Divider 0x08 -> fastest, must be even: can be up to 0xFE for slower SPI Clocking
 	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 
-	void *card0 = SdcInit(ADO_SSP0, CsSdCard0);
+	//void *card0 = SdcInit(ADO_SSP0, CsSdCard0);
+	void *card0 = SdcInitSPI(CsSdCard0);
 	void *card1 = SdcInit(ADO_SSP1, CsSdCard1);
 	void *cards[2];
 	cards[0]= card0;
@@ -158,9 +161,13 @@ int main(void) {
 	MramInit(0,ADO_SSP1, CsMram3);
     MramInit(1,ADO_SSP1, CsMram4);
     MramInit(2,ADO_SSP1, CsMram5);
-	MramInit(3,ADO_SSP0, CsMram0);
-    MramInit(4,ADO_SSP0, CsMram1);
-    MramInit(5,ADO_SSP0, CsMram2);
+//	MramInit(3,ADO_SSP0, CsMram0);
+//  MramInit(4,ADO_SSP0, CsMram1);
+//  MramInit(5,ADO_SSP0, CsMram2);
+    MramInitSPI(3, CsMram0);
+    MramInitSPI(4, CsMram1);
+    MramInitSPI(5, CsMram2);
+
     // CLI commands registering
     AdoMramCliInit();
 

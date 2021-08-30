@@ -19,6 +19,8 @@ typedef enum sdc_res_e
 
 // ADO Mudule API
 void *SdcInit(ado_sspid_t sspId, void(*csHandler)(bool select));
+void *SdcInitSPI(void(*csHandler)(bool select));
+
 void SdcMain(void *cardPtr);
 
 // SDC-Client API

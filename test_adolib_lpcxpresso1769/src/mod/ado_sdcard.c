@@ -10,8 +10,19 @@
 #include <ado_crc.h>
 //#include <stdarg.h>
 #include "ado_sspdma.h"
+#include "ado_spi.h"
 
 #include "ado_eventlogger.h"
+
+
+#define ADO_SXX_AddJob(card, busNr, txData, rxData, txLen, rxLen, finished, activate) { \
+    if (busNr == 99) { \
+        ADO_SPI_AddJob(card, txData, rxData, txLen , rxLen, (void *)finished,(void *)activate); \
+    } else { \
+        ADO_SSP_AddJob(card, busNr, txData, rxData, txLen , rxLen, finished, activate); \
+    } \
+}
+
 
 //SD commands, many of these are not used here
 typedef enum ado_sdc_cmd_e
@@ -107,7 +118,7 @@ void SdcSendCommand(ado_sdcard_t *sdCard, ado_sdc_cmd_t cmd, uint32_t nextState,
 
 
 // Currently we support one sdcard per SSP bus. but this could be expanded if CS-Callbacks are used for different cards on same bus....
-static ado_sdcard_t SdCard[2];
+static ado_sdcard_t SdCard[3];
 
 void ActivateCS(uint32_t context) {
     ado_sdcard_t *sdCard = (ado_sdcard_t *)context;
@@ -127,6 +138,17 @@ void *SdcInit(ado_sspid_t bus,  void(*csHandler)(bool select)) {
 	SdCard[bus].sdcWaitLoops = 0;
 
 	return (void *)&SdCard[bus];
+}
+
+void *SdcInitSPI(void(*csHandler)(bool select)) {
+    SdCard[2].sdcBusNr = 99;
+    SdCard[2].csHandler = csHandler;
+    SdCard[2].sdcType = ADO_SDC_CARD_UNKNOWN;
+    SdCard[2].sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
+    SdCard[2].sdcCmdPending = false;
+    SdCard[2].sdcWaitLoops = 0;
+
+    return (void *)&SdCard[2];
 }
 
 void SdcMain(void *pCard) {
@@ -242,7 +264,8 @@ void SdcMain(void *pCard) {
 				// Lets wait for the start data token.
 			    sdCard->sdcCmdPending = true;
 			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA;
-				ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
+				//ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
+			    ADO_SXX_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
 			} else {
 			    // TODO: Signal Error event
 				printf("Error %02X %02X with read block command\n",sdCard->sdcCmdResponse[1], sdCard->sdcCmdResponse[2] );
@@ -255,7 +278,8 @@ void SdcMain(void *pCard) {
 				// Now we can read all data bytes including 2byte CRC + 1 byte over-read as always to get the shift register in the card emptied....
 			    sdCard->sdcCmdPending = true;
 			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_READ_SBDATA;
-				ADO_SSP_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr, sdCard->sdcCmdData,  sdCard->dataBuffer, 0 , 515, DMAFinishedIRQ, ActivateCS);
+				//ADO_SSP_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr, sdCard->sdcCmdData,  sdCard->dataBuffer, 0 , 515, DMAFinishedIRQ, ActivateCS);
+			    ADO_SXX_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr, sdCard->sdcCmdData,  sdCard->dataBuffer, 0 , 515, DMAFinishedIRQ, ActivateCS);
 			} else {
 				// Wait some mainloops before asking for data token again.
 			    sdCard->sdcStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA2;
@@ -270,7 +294,8 @@ void SdcMain(void *pCard) {
 					// Read 1 byte to check for data token
 				    sdCard->sdcCmdPending = true;
 				    sdCard->nextStatus = ADO_SDC_CARDSTATUS_READ_SBWAITDATA;
-					ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1,DMAFinishedIRQ,ActivateCS);
+					//ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1,DMAFinishedIRQ,ActivateCS);
+				    ADO_SXX_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1,DMAFinishedIRQ,ActivateCS);
 				}
 			}
 			break;
@@ -295,7 +320,8 @@ void SdcMain(void *pCard) {
 			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_WRITE_SBDATA;
 				printf("\nw");      // Debug print only
 				// TODO: sdcReadWriteData is provided by CLI Client -> move this out later....
-				ADO_SSP_AddJob((uint32_t)(sdCard),sdCard->sdcBusNr, sdCard->dataBuffer, sdCard->sdcCmdResponse, 515 , 3, DMAFinishedIRQ, ActivateCS);
+				//ADO_SSP_AddJob((uint32_t)(sdCard),sdCard->sdcBusNr, sdCard->dataBuffer, sdCard->sdcCmdResponse, 515 , 3, DMAFinishedIRQ, ActivateCS);
+				ADO_SXX_AddJob((uint32_t)(sdCard),sdCard->sdcBusNr, sdCard->dataBuffer, sdCard->sdcCmdResponse, 515 , 3, DMAFinishedIRQ, ActivateCS);
 			} else {
 			    // TODO: signal error event
 				printf("Error %02X %02X with read block command\n",sdCard->sdcCmdResponse[1],sdCard->sdcCmdResponse[2] );
@@ -309,7 +335,8 @@ void SdcMain(void *pCard) {
 				// Read 1 byte to check for busy token
 			    sdCard->sdcCmdPending = true;
 			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT;
-				ADO_SSP_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr,  sdCard->sdcCmdData,  sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
+				//ADO_SSP_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr,  sdCard->sdcCmdData,  sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
+				ADO_SXX_AddJob((uint32_t)(sdCard),  sdCard->sdcBusNr,  sdCard->sdcCmdData,  sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ, ActivateCS);
 				printf("5");
 			} else {
 			    // TODO: signal error event
@@ -326,7 +353,8 @@ void SdcMain(void *pCard) {
 			    sdCard->sdcCmdPending = true;
 			    sdCard->nextStatus = ADO_SDC_CARDSTATUS_WRITE_BUSYWAIT;
 				printf("o");
-				ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
+				//ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
+				ADO_SXX_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 0 , 1, DMAFinishedIRQ,ActivateCS);
 			} else {
 				// busy is off now. Lets Check Status
 				// Send CMD13
@@ -403,7 +431,10 @@ void SdcSendCommand(ado_sdcard_t *sdCard, ado_sdc_cmd_t cmd, uint32_t nextState,
 
 	sdCard->sdcCmdPending = true;
 	sdCard->nextStatus = nextState;
-	ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 6 , responseSize, DMAFinishedIRQ, ActivateCS);
+
+	//ADO_SSP_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 6 , responseSize, DMAFinishedIRQ, ActivateCS);
+	ADO_SXX_AddJob((uint32_t)(sdCard), sdCard->sdcBusNr, sdCard->sdcCmdData, sdCard->sdcCmdResponse, 6 , responseSize, DMAFinishedIRQ, ActivateCS);
+
 }
 
 

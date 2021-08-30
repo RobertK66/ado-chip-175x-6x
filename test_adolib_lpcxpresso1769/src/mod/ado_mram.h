@@ -27,6 +27,8 @@ typedef enum mram_res_e
 } mram_res_t;
 
 void MramInit(uint8_t chipIdx, ado_sspid_t busNr, void(*csHandler)(bool select));	  // Module Init called once for each connected chip prior mainloop
+void MramInitSPI(uint8_t chipIdx, void(*csHandler)(bool select));                     // Module Init called once for each connected chip prior mainloop
+
 void MramMain();							// Module routine participating each mainloop.
 
 void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len));

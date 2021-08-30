@@ -11,7 +11,8 @@
 #include <chip.h>
 #include <string.h>
 
-#include <ado_sspdma.h>
+#include "ado_sspdma.h"
+#include "ado_spi.h"
 //#include <mod/cli.h>
 
 typedef enum mram_status_e {
@@ -103,6 +104,33 @@ void MramInit(uint8_t chipIdx, ado_sspid_t busNr, void(*csHandler)(bool select))
     }
 }
 
+void MramInitSPI(uint8_t chipIdx, void(*csHandler)(bool select)) {
+    if (chipIdx < MRAM_CHIP_CNT) {
+        mram_chip_t *mramPtr =  &MramChipStates[chipIdx];
+        mramPtr->status = MRAM_STAT_NOT_INITIALIZED;
+        mramPtr->chipSelectCb = csHandler;
+        mramPtr->busNr = 99;
+
+        //  /* Init mram  read Status register
+        //   * B7       B6      B5      B4      B3      B2      B1      B0
+        //   * SRWD     d.c     d.c     d.c     BP1     BP2     WEL     d.c.
+        //   *
+        //   * On init all bits should read 0x00.
+        //   * The only bit we use here is WEL (Write Enable) and this is reset to 0
+        //   * on power up.
+        //   * None of the other (protection) bits are used at this moment by this software.
+        //   */
+        //  uint8_t *job_status = NULL;
+        //  volatile uint32_t helper;
+
+        /* Read Status register */
+        mramPtr->tx[0] = 0x05;
+        mramPtr->rx[0] = 0xFF;
+        ADO_SPI_AddJob((uint32_t)mramPtr, mramPtr->tx, mramPtr->rx, 1, 1, (void *)MramJobFinished , (void *)MramActivate);
+    }
+}
+
+
 void MramMain() {
     for (uint8_t chipIdx = 0; chipIdx < MRAM_CHIP_CNT; chipIdx++) {
         mram_chip_t *mramPtr =  &MramChipStates[chipIdx];
@@ -125,7 +153,11 @@ void MramMain() {
                 memcpy(&mramPtr->mramData[4],mramPtr->ioDataPtr, mramPtr->ioLen);           // TODO: we could make a Scatter DMA with Tx1-TX2 to solve this aditional copy .and the need of duplicate buffer !!!!....
                                                                                             // 
                 mramPtr->busyFlag = true;
-                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr,mramPtr->mramData, NULL, mramPtr->ioLen+4, 0, MramJobFinished , MramActivate);
+                if (mramPtr->busNr == 99) {
+                    ADO_SPI_AddJob((uint32_t)mramPtr, mramPtr->mramData, NULL, mramPtr->ioLen+4, 0,(void *) MramJobFinished , (void *)MramActivate);
+                } else {
+                    ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr,mramPtr->mramData, NULL, mramPtr->ioLen+4, 0, MramJobFinished , MramActivate);
+                }
                 mramPtr->status = MRAM_STAT_TX_INPROGRESS;
 
             } else if (mramPtr->status == MRAM_STAT_TX_INPROGRESS) {
@@ -134,7 +166,11 @@ void MramMain() {
                 mramPtr->tx[0] = 0x04;
 
                 mramPtr->busyFlag = true;
-                ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
+                if (mramPtr->busNr == 99) {
+                    ADO_SPI_AddJob((uint32_t)mramPtr, mramPtr->tx, NULL, 1 , 0, (void *)MramJobFinished , (void *)MramActivate);
+                } else {
+                    ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
+                }
                 mramPtr->status = MRAM_STAT_WREN_CLR;
 
             } else if (mramPtr->status == MRAM_STAT_WREN_CLR) {
@@ -192,7 +228,11 @@ void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t l
 	mramPtr->ioDataPtr = rx_data;
 	mramPtr->ioLen = len;
 
-    ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, rx_data, 4 , len, MramJobFinished , MramActivate);
+	if (mramPtr->busNr == 99) {
+	    ADO_SPI_AddJob((uint32_t)mramPtr, mramPtr->tx, rx_data, 4 , len, (void *)MramJobFinished , (void *)MramActivate);
+	} else {
+	    ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, rx_data, 4 , len, MramJobFinished , MramActivate);
+	}
 
 	return;
 }
@@ -236,7 +276,11 @@ void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len, 
 	mramPtr->ioAdr = adr;
 	mramPtr->ioDataPtr = data;
 	mramPtr->ioLen = len;
-	ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
+	if (mramPtr->busNr == 99) {
+	    ADO_SPI_AddJob((uint32_t)mramPtr, mramPtr->tx, NULL, 1 , 0, (void *)MramJobFinished , (void *)MramActivate);
+	} else {
+	    ADO_SSP_AddJob((uint32_t)mramPtr, mramPtr->busNr, mramPtr->tx, NULL, 1 , 0, MramJobFinished , MramActivate);
+	}
 
 	return;
 }
