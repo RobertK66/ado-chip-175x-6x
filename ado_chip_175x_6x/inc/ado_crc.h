@@ -8,7 +8,7 @@
 #ifndef ADO_CRC_H_
 #define ADO_CRC_H_
 
-#include <Chip.h>
+#include <chip.h>
 
 // Optimized CRC16 for Poly=x16+x12+x5+1, refin=false refout=false
 uint16_t CRC16_0x1021(const uint8_t* data_p, uint16_t length, uint16_t start);

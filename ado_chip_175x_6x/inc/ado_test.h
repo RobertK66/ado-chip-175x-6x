@@ -8,7 +8,7 @@
 #ifndef ADO_TEST_H_
 #define ADO_TEST_H_
 
-#include <Chip.h>
+#include <chip.h>
 
 // type prototype. (needed because of self reference!)
 typedef struct test_failure_s test_failure_t;
