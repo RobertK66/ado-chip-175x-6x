@@ -38,7 +38,7 @@ extern uint32_t SystemCoreClock;            // This is also expected external by
 
 static uint32_t resetSource = 0x0;
 void LpcExpresso1769Init(void);
-void PegasusObcInit(void);
+void ClimbObcEm2Init(void);
 
 // Set up and initialize hardware prior to call to main
 void SystemInit(void) {
@@ -50,16 +50,17 @@ void SystemInit(void) {
 	// Read and keep the reset source.
 	resetSource = LPC_SYSCTL->RSID;
 
-    LpcExpresso1769Init();
+    // Switch to XTAL wait for PLL To be locked and set the CPU Core Frequency.
+    Chip_SetupXtalClocking();
+    //Read clock settings and update SystemCoreClock variable (needed only for iap.c module - Common FLASH support functions ...)
+    SystemCoreClockUpdate();
 
-	// Switch to XTAL wait for PLL To be locked and set the CPU Core Frequency.
-	Chip_SetupXtalClocking();
-	//Read clock settings and update SystemCoreClock variable (needed only for iap.c module - Common FLASH support functions ...)
-	SystemCoreClockUpdate();
+#ifdef BOARD_CLIMB_EM2
+	ClimbObcEm2Init();
+#else
+    LpcExpresso1769Init();
+#endif
 	
-	// Choose your board here
-	//LpcExpresso1769Init();
-	//PegasusObcInit();
 }
 
 // Following section is written to use the LPCXpresso1769 Board (aka OM13085)
@@ -114,43 +115,64 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
+// This is the Pinmux for the OBC board - EM2
+STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
+    // Side Panel UARTS
+	{ 0, 2, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 Tx "Uart C" !!!*/
+	{ 0, 3, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 Rx "Uart C"    */
+	{ 2, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Tx   "Uart D" !!!*/
+	{ 2, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Rx   "Uart D"    */
+	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" */
+	{ 2, 8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Tx "Uart B" */	// This prog uses this UART as CLI !!!
+	{ 2, 9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Rx "Uart B" */
+	{ 0, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Tx "Uart A" */
+	{ 0, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Rx "Uart A" */
 
+	// "I2C C/D" Side panel bus
+	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA0 	    */
+	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL0 	    */
 
-// This is the Pinmux for the OBC board - Only Uarts used and checked yet ....
-STATIC const PINMUX_GRP_T pinmuxing2[] = {
-	{ 0, 2, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 "Uart D" */
-	{ 0, 3, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 "Uart D" */
-	{ 2, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 "Uart C" */
-	{ 2, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 "Uart C" */
-	{ 2, 8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 "Uart B" */		// We use this as command line interface for cli module
-	{ 2, 9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 "Uart B" */		//
-	{ 0, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 "Uart A" */
-	{ 0, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 "Uart A" */
+	// "ONBOARD I2C"
+	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA1         */
+	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL1         */
 
-	{ 0, 22, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led red       */
-	{ 3, 25, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led green     */
-	{ 3, 26, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Led blue      */
+	// "I2C A/B" Side panel bus
+	{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SDA2         */
+	{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SCL2         */
 
-	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA 	    */	// J2-25
-	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL 	    */  // J2-26
+	// SPI connected to SD Card slot
+	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */
+	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC0 }, /* (SSL) P2[5]	 */ // SPI only uses the SSL pin when in slave mode. To use as CS for Master this is normal IO
+	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */
+	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */
 
-	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA      */ // PAD8 	this connects to boards e2prom with address 0x50
-	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL      */  // PAD2
+	// SSP0 connected to MRAM01/02/03 (1/2/3)
+	{ 1, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK0           */
+	{ 1, 23, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MISO0          */
+	{ 1, 24, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MOSI0          */
+	// CS for MRAM 01/02/03
+    { 0, 22, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS1 */
+    { 2, 11, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS2 */
+    { 2, 12, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS3 */
 
-	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */ // J2-13	we use this to test SPI SD card slot.
-	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SSL   		 */ // J2-13    the 'recommended' SSL for SSP0
-	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */	// J2-12
-	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */	// J2-11
+	// SSP1 connected to MRAM11/12/13 (4/5/6)
+    { 0,  7, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK1           */
+    { 0,  8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO1          */
+    { 0,  9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI1          */
+    // CS for MRAMs 11/12/13
+    { 2,  2, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS1     */
+    { 0,  4, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS2     */
+    { 1, 10, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS3     */
 
-	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
-
-void PegasusObcInit(void) {
-	// All IOS are not checked yet. Only Uart B (has other MUX Pins!!!) is used at this moment.
-	Chip_IOCON_SetPinMuxing(LPC_IOCON, pinmuxing2, sizeof(pinmuxing2) / sizeof(PINMUX_GRP_T));
+void ClimbObcEm2Init(void) {
+    // Pin Config
+    Chip_IOCON_SetPinMuxing(LPC_IOCON, pinmuxingEM2, sizeof(pinmuxingEM2) / sizeof(PINMUX_GRP_T));
 	Chip_GPIO_Init(LPC_GPIO);
 
+	// IO inits
+	//....
 
 }
 
@@ -195,9 +217,5 @@ void LpcExpresso1769Init(void) {
       Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 31);
 
 
-//    Chip_SPI_Init(LPC_SPI); 		// All default values as above, Bitrate is set to 4000000 with this!
-//	Chip_SPI_Int_Enable(LPC_SPI);
-//	//NVIC_SetPriority(SPI_IRQn, 5);
-//	NVIC_EnableIRQ(SPI_IRQn);
 	
 }

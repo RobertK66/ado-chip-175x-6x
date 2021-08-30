@@ -41,9 +41,9 @@ void ReadMramCmd(int argc, char *argv[]) {
     if (len > MRAM_MAX_READ_SIZE) {
         len = MRAM_MAX_READ_SIZE;
     }
-    if (idx > MRAM_CHIP_CNT) {
-            idx = 0;
-        }
+    if (idx >= MRAM_CHIP_CNT) {
+       idx = 0;
+    }
 
     //mram_chip_t *mramPtr =  &MramChipStates[idx];
 

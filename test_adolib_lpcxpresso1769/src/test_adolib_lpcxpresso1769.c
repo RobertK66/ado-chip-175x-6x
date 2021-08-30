@@ -57,22 +57,40 @@ uint32_t GetResetCntFromRTC(void);
 uint32_t GetResetCountFromPersistence(void);
 void IncrementResetCount(void);
 
+#ifdef BOARD_CLIMB_EM2
 // SSP0 Chips
-#define MRAM0_CS_PORT   0
-#define MRAM0_CS_PIN   26
-#define MRAM1_CS_PORT   1
-#define MRAM1_CS_PIN   30
-#define MRAM2_CS_PORT   1
-#define MRAM2_CS_PIN   31
+    #define MRAM0_CS_PORT   0
+    #define MRAM0_CS_PIN   22       // EM2: "SSP0-MRAM-CS1"
+    #define MRAM1_CS_PORT   2
+    #define MRAM1_CS_PIN   11       // EM2: "SSP0-MRAM-CS2"
+    #define MRAM2_CS_PORT   2
+    #define MRAM2_CS_PIN   12       // EM2: "SSP0-MRAM-CS3"
 
 // SSP1 Chips
-#define MRAM3_CS_PORT   0
-#define MRAM3_CS_PIN   23
-#define MRAM4_CS_PORT   0
-#define MRAM4_CS_PIN   24
-#define MRAM5_CS_PORT   0
-#define MRAM5_CS_PIN   25
+    #define MRAM3_CS_PORT   2
+    #define MRAM3_CS_PIN    2       // EM2: "SSP1-MRAM-CS1"
+    #define MRAM4_CS_PORT   0
+    #define MRAM4_CS_PIN    4       // EM2: "SSP1-MRAM-CS2"
+    #define MRAM5_CS_PORT   1
+    #define MRAM5_CS_PIN   10       // EM2: "SSP1-MRAM-CS3"
 
+#else
+    // SSP0 Chips
+    #define MRAM0_CS_PORT   0
+    #define MRAM0_CS_PIN   26
+    #define MRAM1_CS_PORT   1
+    #define MRAM1_CS_PIN   30
+    #define MRAM2_CS_PORT   1
+    #define MRAM2_CS_PIN   31
+
+    // SSP1 Chips
+    #define MRAM3_CS_PORT   0
+    #define MRAM3_CS_PIN   23
+    #define MRAM4_CS_PORT   0
+    #define MRAM4_CS_PIN   24
+    #define MRAM5_CS_PORT   0
+    #define MRAM5_CS_PIN   25
+#endif
 
 void CsMram0(bool select) {
     Chip_GPIO_SetPinState(LPC_GPIO, MRAM0_CS_PORT, MRAM0_CS_PIN, !select);
@@ -104,13 +122,16 @@ void CsMram5(bool select) {
 
 }
 
+
 void CsSdCard0(bool select) {
     Chip_GPIO_SetPinState(LPC_GPIO, 0, 16, !select);
 }
 
+#ifndef BOARD_CLIMB_EM2
 void CsSdCard1(bool select) {
     Chip_GPIO_SetPinState(LPC_GPIO, 0, 6, !select);
 }
+#endif
 
 
 int main(void) {
@@ -142,31 +163,47 @@ int main(void) {
 
 	StopWatch_Init1(LPC_TIMER0);
 
+
+	void *cards[2];
+
 	// SSPx init:
 	// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
 	// My SD cards all work with clock mode mode3 or mode0. Mode3 is 10% faster as no SSL de-actiavtion between bytes is done.
-    //ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
+#ifdef BOARD_CLIMB_EM2
+	ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
+    ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 	ADO_SPI_Init(0x08, SPI_CLOCK_MODE3);                                   // Clock Divider 0x08 -> fastest, must be even: can be up to 0xFE for slower SPI Clocking
-	ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 
-	//void *card0 = SdcInit(ADO_SSP0, CsSdCard0);
-	void *card0 = SdcInitSPI(CsSdCard0);
-	void *card1 = SdcInit(ADO_SSP1, CsSdCard1);
-	void *cards[2];
-	cards[0]= card0;
-	cards[1]= card1;
+	cards[0] = SdcInitSPI(CsSdCard0);
+	AdoSdcardCliInit(1, cards);
+#else
+	//ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
+    ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
+	ADO_SPI_Init(0x08, SPI_CLOCK_MODE3);                                   // Clock Divider 0x08 -> fastest, must be even: can be up to 0xFE for slower SPI Clocking
+
+	//cards[0]= SdcInit(ADO_SSP0, CsSdCard0);
+	cards[0] = SdcInitSPI(CsSdCard0);
+	cards[1] = SdcInit(ADO_SSP1, CsSdCard1);
 	AdoSdcardCliInit(2, cards);
+#endif
 
-	// 6 chip inits
-	MramInit(0,ADO_SSP1, CsMram3);
-    MramInit(1,ADO_SSP1, CsMram4);
-    MramInit(2,ADO_SSP1, CsMram5);
-//	MramInit(3,ADO_SSP0, CsMram0);
-//  MramInit(4,ADO_SSP0, CsMram1);
-//  MramInit(5,ADO_SSP0, CsMram2);
-    MramInitSPI(3, CsMram0);
-    MramInitSPI(4, CsMram1);
-    MramInitSPI(5, CsMram2);
+	// 6 MRAM chip inits
+#ifdef BOARD_CLIMB_EM2
+    MramInit(0, ADO_SSP0, CsMram0);
+    MramInit(1, ADO_SSP0, CsMram1);
+    MramInit(2, ADO_SSP0, CsMram2);
+#else
+    //  MramInit(0, ADO_SSP0, CsMram0);
+    //  MramInit(1, ADO_SSP0, CsMram1);
+    //  MramInit(2, ADO_SSP0, CsMram2);
+    MramInitSPI(0, CsMram0);
+    MramInitSPI(1, CsMram1);
+    MramInitSPI(2, CsMram2);
+#endif
+
+    MramInit(3, ADO_SSP1, CsMram3);
+    MramInit(4, ADO_SSP1, CsMram4);
+    MramInit(5, ADO_SSP1, CsMram5);
 
     // CLI commands registering
     AdoMramCliInit();
@@ -183,8 +220,11 @@ int main(void) {
 
 	while(1) {
 		CliMain();
-		SdcMain(card0);
-		SdcMain(card1);
+		SdcMain(cards[0]);
+
+#ifndef BOARD_CLIMB_EM2
+		SdcMain(cards[1]);
+#endif
 		AdoCliMain();
 		LogMain();
 		MramMain();
