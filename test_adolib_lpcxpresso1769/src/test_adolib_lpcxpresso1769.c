@@ -150,9 +150,9 @@ int main(void) {
 				   // To check on the test result and error message hit Debugger-'Pause' ('Suspend Debug Session') and check result structure....
 
 	// Select UART to be used for command line interface.
-	CliInit1(LPC_UART2);
+	//CliInit1(LPC_UART2);
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
-	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
+	CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
 	uint32_t userBaseEventNr = LogInitEventLogger();
 	userBaseEventNr++;      // dummy usage to avoid warning....
@@ -217,6 +217,47 @@ int main(void) {
 	// ... and auto start it for running all test.
 	main_showVersionCmd(0,0);
 	//main_testCmd(0,0);
+
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 18);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 18);
+
+	 /* Inbetriebnahme */
+
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 9);   		/* Reset WDT latch   */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 9);   		/* WDT latch reset set to high   */
+
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 19);   		/* Select thruster   */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 19);   	/* Unselect thruster   */
+
+	// Disable I2C
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 30); /* I2C-A EN    */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 3);  /* I2C-B EN    */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 4);  /* I2C-C EN    */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 1);  /* I2C-D EN    */
+
+ 	// Enable I2C
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 30); /* I2C-A EN    */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 3);  /* I2C-B EN    */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 4);  /* I2C-C EN    */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 1);  /* I2C-D EN    */
+
+ 	//Disable supply
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 28);   /* SP-A Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 7);    /* SP-B Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 15);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 22);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 4, 28);   /* SD Supply Enable     */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 29);   /* OBC Supply disable  */
+
+ 	//Enable supply
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 28);   /* SP-A Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 7);    /* SP-B Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 15);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 22);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 4, 28);   /* SD Supply Enable     */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 29);   /* SD Supply Enable     */
+
+ 	/* Ende Inbetriebnahme*/
 
 	while(1) {
 		CliMain();
