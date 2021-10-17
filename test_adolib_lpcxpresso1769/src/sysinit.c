@@ -112,6 +112,8 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 1, 30, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS2		*/ // J2-19
 	{ 1, 31, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS3		*/ // J2-20
 
+
+
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
@@ -122,7 +124,7 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	{ 0, 3, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 Rx "Uart C"    */
 	{ 2, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Tx   "Uart D" !!!*/
 	{ 2, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Rx   "Uart D"    */
-	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" */
+	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC0 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" */
 	{ 2, 8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Tx "Uart B" */	// This prog uses this UART as CLI !!!
 	{ 2, 9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Rx "Uart B" */
 	{ 0, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Tx "Uart A" */
@@ -196,6 +198,8 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	{ 0,25 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Temperature (Analog Input 2)  */
 	{ 0,26 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Supply Voltage (Analog Input 3)  */
 
+	{ 1, 27, IOCON_MODE_INACT | IOCON_FUNC1},	/* CLKOUT */
+
 
 };
 
@@ -221,6 +225,7 @@ void ClimbObcEm2Init(void) {
 
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 6, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 6);
+
 
 // GPIOs
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 4, false);   /* SP-VCC-FAULT (Input)  */

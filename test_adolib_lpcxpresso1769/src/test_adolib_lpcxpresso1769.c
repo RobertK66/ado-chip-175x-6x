@@ -163,7 +163,7 @@ int main(void) {
 
 	StopWatch_Init1(LPC_TIMER0);
 
-
+	AdcInit();
 	void *cards[2];
 
 	// SSPx init:
@@ -257,7 +257,20 @@ int main(void) {
  	Chip_GPIO_SetPinOutLow(LPC_GPIO, 4, 28);   /* SD Supply Enable     */
  	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 29);   /* SD Supply Enable     */
 
+ 	Chip_Clock_DisableCLKOUT();
+ 	//Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_MAINOSC, 1);
+ 	//Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_IRC, 1);
+ 	Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_RTC, 1);
+ 	Chip_Clock_EnableCLKOUT();
+
+
+ 	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 5, true);
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 5);
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
+
  	/* Ende Inbetriebnahme*/
+
 
 	while(1) {
 		CliMain();
