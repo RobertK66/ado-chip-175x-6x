@@ -133,6 +133,11 @@ void CsSdCard1(bool select) {
 }
 #endif
 
+void ledOn()
+{
+	Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+}
+
 
 int main(void) {
     // Start the systemTime running on RIT IRQ. The offset to start from is dependent on code runtime from reset up to here.
@@ -150,7 +155,8 @@ int main(void) {
 				   // To check on the test result and error message hit Debugger-'Pause' ('Suspend Debug Session') and check result structure....
 
 	// Select UART to be used for command line interface.
-	//CliInit1(LPC_UART2);
+	//
+	//CliInit2(LPC_UART1,9600);
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
@@ -263,16 +269,60 @@ int main(void) {
  	Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_RTC, 1);
  	Chip_Clock_EnableCLKOUT();
 
+ 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 27, 1); /* I2C0 SDA0 	    */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 28, 1); /* I2C0 SCL0 	    */
+
+ 	// "ONBOARD I2C"
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 19, 1); /* I2C1 SDA1         */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 20, 1); /* I2C1 SCL1         */
+
+ 	// "I2C A/B" Side panel bus
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 10, 1); /* I2C2 SDA2         */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 11, 1); /* I2C2 SCL2         */
+
+
+
 
  	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 5, true);
  	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
  	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 5);
  	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
 
+
+
+ 	CliRegisterCommand(">ledOn\0", ledOn);
+
+
  	/* Ende Inbetriebnahme*/
+
+ 	ado_timestamp ts = TimeGetCurrentTimestamp();
+ 	uint32_t count = 0;
 
 
 	while(1) {
+
+		 if (ts < TimeGetCurrentTimestamp())
+		 {
+			 ts = TimeGetCurrentTimestamp() + 500;
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 1, 18);
+
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 27); /* I2C0 SDA0 	    */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 28); /* I2C0 SCL0 	    */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 19); /* I2C1 SDA1         */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 20); /* I2C1 SCL1         */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 10); /* I2C2 SDA2         */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 11); /* I2C2 SCL2         */
+
+
+			 printf("Fault: %d\n", Chip_GPIO_GetPinState(LPC_GPIO,2,4)); // Fault pin
+
+			 			 //printf("Tick %i\n", count);
+			 //Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 6);
+			 //printf("ledOn\r\n"); // Loopback test
+			 //Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+			 count++;
+		 }
+
 		CliMain();
 		SdcMain(cards[0]);
 
