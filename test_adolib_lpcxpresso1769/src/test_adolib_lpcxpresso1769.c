@@ -223,11 +223,30 @@ int main(void) {
 
 	 /* Inbetriebnahme */
 
+
+
+
+	uint32_t fault = Chip_GPIO_GetPinState(LPC_GPIO, 2, 4);   /* SP-VCC-FAULT (Input)  */
+	uint32_t rail = Chip_GPIO_GetPinState(LPC_GPIO, 3, 25);  /* Supply Rail Indicator (Input)  */
+	uint32_t boot = Chip_GPIO_GetPinState(LPC_GPIO, 3, 26);   /* Boot-loader selection (Input)  */
+	uint32_t rbf = Chip_GPIO_GetPinState(LPC_GPIO, 0, 21);   /* Remove before flight (Input)  */
+	uint32_t wdt_trig = Chip_GPIO_GetPinState(LPC_GPIO, 4, 29);   /* Ext. WDT triggered latch (Input)  */
+
 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 9);   		/* Reset WDT latch   */
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 9);   		/* WDT latch reset set to high   */
 
 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 19);   		/* Select thruster   */
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 19);   	/* Unselect thruster   */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 26, true);   /* Thruster latchup (Test Output)  */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 26);   		/* Select thruster   */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 26);   	/* Unselect thruster   */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 26, false);   /* Thruster latchup (Input)  */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 5, true);   /* RS485 RX/TX sel  */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 5);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
+
 
 	// Disable I2C
 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 30); /* I2C-A EN    */
