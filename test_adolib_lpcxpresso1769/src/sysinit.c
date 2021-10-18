@@ -112,6 +112,8 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 1, 30, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS2		*/ // J2-19
 	{ 1, 31, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS3		*/ // J2-20
 
+
+
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
@@ -129,16 +131,28 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	{ 0, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Rx "Uart A" */
 
 	// "I2C C/D" Side panel bus
-	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA0 	    */
-	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL0 	    */
+	//{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA0 	    */
+	//{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL0 	    */
 
 	// "ONBOARD I2C"
-	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA1         */
-	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL1         */
+	//{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA1         */
+	//{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL1         */
 
 	// "I2C A/B" Side panel bus
-	{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SDA2         */
-	{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SCL2         */
+	//{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SDA2         */
+	//{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SCL2         */
+
+	// "I2C C/D" Side panel bus
+		{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C0 SDA0 	    */
+		{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C0 SCL0 	    */
+
+		// "ONBOARD I2C"
+		{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C1 SDA1         */
+		{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C1 SCL1         */
+
+		// "I2C A/B" Side panel bus
+		{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C2 SDA2         */
+		{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C2 SCL2         */
 
 	// SPI connected to SD Card slot
 	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK   		 */
@@ -196,6 +210,8 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	{ 0,25 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Temperature (Analog Input 2)  */
 	{ 0,26 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Supply Voltage (Analog Input 3)  */
 
+	{ 1, 27, IOCON_MODE_INACT | IOCON_FUNC1},	/* CLKOUT */
+
 
 };
 
@@ -222,6 +238,7 @@ void ClimbObcEm2Init(void) {
 	/* OBC LED    */
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 6, true);
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 6);
+
 
 // GPIOs
 	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 4, false);   /* SP-VCC-FAULT (Input)  */

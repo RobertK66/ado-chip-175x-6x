@@ -278,13 +278,13 @@ void processLine() {
 	}
 
 	if (!processed) {
-		if (strlen(&cmdLine[0])>0) {
+		/*if (strlen(&cmdLine[0])>0) {
 			printf("Command '%s' not found. Try one of these:\n",  &cmdLine[0]);
 			for (int cmd = 0; cmd < cliRegisteredCommands; cmd++ ) {
 				printf("'%s' ", commands[cmd].cmdStr);
 			}
 		}
-		printf("\n");
+		printf("\n");*/
 	}
 
 }
