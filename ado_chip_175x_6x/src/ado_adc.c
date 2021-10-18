@@ -10,6 +10,7 @@
 #include "adc_17xx_40xx.h"
 #include "stdio.h"
 #include "math.h"
+#include "ado_adc.h"
 
 #define ADC_SUPPLY_CURRENT_CH 0
 #define ADC_SUPPLY_CURRENT_SP_CH 1

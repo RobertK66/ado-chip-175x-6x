@@ -124,24 +124,26 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	{ 0, 3, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 Rx "Uart C"    */
 	{ 2, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Tx   "Uart D" !!!*/
 	{ 2, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Rx   "Uart D"    */
-	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC0 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" FUNC 2*/
+	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" FUNC 2*/
 	{ 2, 8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Tx "Uart B" */	// This prog uses this UART as CLI !!!
 	{ 2, 9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Rx "Uart B" */
 	{ 0, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Tx "Uart A" */
 	{ 0, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Rx "Uart A" */
 
+
+#if 1
 	// "I2C C/D" Side panel bus
-	//{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA0 	    */
-	//{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL0 	    */
+	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA0 	    */
+	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL0 	    */
 
 	// "ONBOARD I2C"
-	//{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA1         */
-	//{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL1         */
+	{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SDA1         */
+	{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* I2C1 SCL1         */
 
 	// "I2C A/B" Side panel bus
-	//{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SDA2         */
-	//{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SCL2         */
-
+	{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SDA2         */
+	{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SCL2         */
+#else
 	// "I2C C/D" Side panel bus
 		{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C0 SDA0 	    */
 		{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C0 SCL0 	    */
@@ -153,6 +155,7 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 		// "I2C A/B" Side panel bus
 		{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C2 SDA2         */
 		{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C2 SCL2         */
+#endif
 
 	// SPI connected to SD Card slot
 	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK   		 */

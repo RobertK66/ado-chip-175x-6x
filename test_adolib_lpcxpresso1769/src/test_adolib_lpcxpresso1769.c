@@ -35,6 +35,7 @@
 #include "mod/ado_eventlogger.h"
 #include "mod/ado_mram.h"
 #include "mod/ado_mram_cli.h"
+#include "ado_adc.h"
 
 
 // collect all module tests together into one test suite.
@@ -324,16 +325,19 @@ int main(void) {
 		 {
 			 ts = TimeGetCurrentTimestamp() + 500;
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 1, 18);
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
 
+#if 0
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 27); /* I2C0 SDA0 	    */
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 28); /* I2C0 SCL0 	    */
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 19); /* I2C1 SDA1         */
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 20); /* I2C1 SCL1         */
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 10); /* I2C2 SDA2         */
 			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 11); /* I2C2 SCL2         */
+#endif
 
 
-			 printf("Fault: %d\n", Chip_GPIO_GetPinState(LPC_GPIO,2,4)); // Fault pin
+			 //printf("Fault: %d\n", Chip_GPIO_GetPinState(LPC_GPIO,2,4)); // Fault pin
 
 			 			 //printf("Tick %i\n", count);
 			 //Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 6);
@@ -341,6 +345,7 @@ int main(void) {
 			 //Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
 			 count++;
 		 }
+
 
 		CliMain();
 		SdcMain(cards[0]);
