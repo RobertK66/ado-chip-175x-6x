@@ -50,6 +50,15 @@ typedef struct {
 	uint32_t modefunc:24;	/* Function and mode. */
 } PINMUX_GRP_T;
 
+typedef struct {
+	uint32_t pingrp:	3;	/* Pin group aka port*/
+	uint32_t pinnum:	5;	/* Pin number */
+	uint32_t modefunc:	4;
+	uint32_t output:	1;
+	uint32_t initval:	1;
+	uint32_t filler:   18;
+} PINMUX_GRP_T2;
+
 /**
  * @brief IOCON register block
  */
@@ -100,6 +109,12 @@ typedef struct {
 #define IOCON_DAC_EN            (0x1 << 16)		/*!< Enables DAC function */
 #endif
 
+// IOCON direction and initval definitions for new PINMUX_GRP_T2 structure
+#define IOCON_DIR_OUTPUT 1
+#define IOCON_DIR_INPUT  0
+#define IOCON_VAL_HIGH   1
+#define IOCON_VAL_LOW    0
+
 /**
  * IOCON function and mode selection definitions (old)
  * For backwards compatibility.
@@ -113,6 +128,8 @@ typedef struct {
 #define MD_PDN					(0x3)
 #define MD_PUP					(0x0)
 #define MD_BUK					(0x1)
+
+
 
 #else
 #define MD_PLN					(0x0 << 3)
@@ -262,6 +279,8 @@ STATIC INLINE void Chip_IOCON_PinMux(LPC_IOCON_T *pIOCON, uint8_t port, uint8_t 
  * @return	Nothing
  */
 void Chip_IOCON_SetPinMuxing(LPC_IOCON_T *pIOCON, const PINMUX_GRP_T* pinArray, uint32_t arrayLength);
+void Chip_IOCON_SetPinMuxing2(LPC_IOCON_T *pIOCON, const PINMUX_GRP_T2* pinArray, uint32_t arrayLength);
+
 
 /**
  * @}

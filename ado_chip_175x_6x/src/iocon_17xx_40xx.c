@@ -81,3 +81,19 @@ void Chip_IOCON_SetPinMuxing(LPC_IOCON_T *pIOCON, const PINMUX_GRP_T* pinArray, 
 		Chip_IOCON_PinMuxSet(pIOCON, pinArray[ix].pingrp, pinArray[ix].pinnum, pinArray[ix].modefunc);
 	}
 }
+
+/* Set all I/O Control pin muxing */
+void Chip_IOCON_SetPinMuxing2(LPC_IOCON_T *pIOCON, const PINMUX_GRP_T2* pinArray, uint32_t arrayLength)
+{
+	uint32_t ix;
+
+	for (ix = 0; ix < arrayLength; ix++ ) {
+		Chip_IOCON_PinMuxSet(pIOCON, pinArray[ix].pingrp, pinArray[ix].pinnum, pinArray[ix].modefunc);
+		if ((pinArray[ix].modefunc & 0x03) == IOCON_FUNC0) {
+			Chip_GPIO_WriteDirBit(LPC_GPIO, pinArray[ix].pingrp, pinArray[ix].pinnum, pinArray[ix].output );
+			if ( pinArray[ix].output ) {
+				Chip_GPIO_SetPinState(LPC_GPIO,pinArray[ix].pingrp, pinArray[ix].pinnum, pinArray[ix].initval);
+			}
+		}
+	}
+}
