@@ -55,6 +55,7 @@ typedef struct {
 	uint32_t pinnum:	5;	/* Pin number */
 	uint32_t modefunc:	4;
 	uint32_t output:	1;
+	uint32_t opendrain:	1;
 	uint32_t initval:	1;
 	uint32_t filler:   18;
 } PINMUX_GRP_T2;
@@ -110,10 +111,13 @@ typedef struct {
 #endif
 
 // IOCON direction and initval definitions for new PINMUX_GRP_T2 structure
-#define IOCON_DIR_OUTPUT 1
-#define IOCON_DIR_INPUT  0
-#define IOCON_VAL_HIGH   1
-#define IOCON_VAL_LOW    0
+#define IOCON_DIR_OUTPUT  1
+#define IOCON_DIR_INPUT   0
+#define IOCON_VAL_HIGH    1
+#define IOCON_VAL_LOW     0
+#define IOCON_OD_ENABLED  1
+#define IOCON_OD_DISABLED 0
+
 
 /**
  * IOCON function and mode selection definitions (old)
@@ -175,6 +179,9 @@ STATIC INLINE void Chip_IOCON_Init(LPC_IOCON_T *pIOCON)
 #define IOCON_REG_INDEX(port, pin)		(2 * port + (pin / 16))
 /* Bit position calculation in PINSEL and PINMODE register.*/
 #define IOCON_BIT_INDEX(pin)			((pin % 16) * 2)
+
+// Check if a modefunc has FUNC0 selected -> normal GPIO.
+#define IOCON_ISGPIO(pin) ((pin->modefunc & 0x03) == 0x00)
 
 /**
  * @brief	Sets I/O Control pin mux
