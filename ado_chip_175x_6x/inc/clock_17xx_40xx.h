@@ -736,6 +736,7 @@ STATIC INLINE bool Chip_Clock_IsCLKOUTEnabled(void)
 STATIC INLINE uint32_t Chip_Clock_GetMainOscRate(void)
 {
 	return OscRateIn;
+	//return 12000000;
 }
 
 /**
@@ -753,7 +754,8 @@ STATIC INLINE uint32_t Chip_Clock_GetIntOscRate(void)
  */
 STATIC INLINE uint32_t Chip_Clock_GetRTCOscRate(void)
 {
-	return RTCOscRateIn;
+	//return RTCOscRateIn;
+	return 32768;
 }
 
 /**

@@ -8,8 +8,7 @@
 #ifndef SYSTEM_H_
 #define SYSTEM_H_
 
-#define BOARD_CLIMB_EM2     // Temp used here to get a version for hardware commissioning the new prototypes of EM2
-
+#define BOARD_CLIMB_EM2 1    // Temp used here to get a version for hardware commissioning the new prototypes of EM2
 
 #include <chip.h>
 
