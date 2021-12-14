@@ -29,10 +29,7 @@ void AdoMramCliInit() {
 
 
 void ReadMramCmd(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("uasge: cmd <chipIdx> <adr> <len> where\n" );
-        return;
-    }
+
 
     // CLI params to binary params
     uint8_t  idx = atoi(argv[0]);

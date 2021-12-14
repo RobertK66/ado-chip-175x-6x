@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <ado_libmain.h>
 #include <ado_time.h>
@@ -35,6 +36,7 @@
 #include "mod/ado_eventlogger.h"
 #include "mod/ado_mram.h"
 #include "mod/ado_mram_cli.h"
+#include "ado_adc.h"
 
 
 // collect all module tests together into one test suite.
@@ -133,6 +135,60 @@ void CsSdCard1(bool select) {
 }
 #endif
 
+void ledOn()
+{
+	Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+}
+
+
+//{ 0,23 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Main supply current (Analog Input 0)  */
+    //{ 0,24 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Sidpanel supply current (Analog Input 1)  */
+    //{ 0,25 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Temperature (Analog Input 2)  */
+    //{ 0,26 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Supply Voltage (Analog Input 3)  */
+
+
+float convertCurrent_c0(uint16_t value) {
+    return ((value * (ADC_VREF / 4095) - 0.01) / 100 / 0.075);
+}
+
+float convertCurrentSp_c1(uint16_t value) {
+    return ((value * (ADC_VREF / 4095) - 0.01) / 100 / 0.075 - 0.0003);
+}
+
+float convertTemperature_c2(uint16_t value) {
+    float temp = value * (4.9 / 3.9 * ADC_VREF / 4095);
+    return (-1481.96 + sqrt(2196200 + (1.8639 - temp) * 257730));
+}
+
+float convertSupplyVoltage_c3(uint16_t value) {
+    return (value * (2.0 * ADC_VREF / 4095));
+}
+
+static const adc_channel_t AdcChannels [] = {
+   { convertCurrent_c0 },
+   { convertCurrentSp_c1 },
+   { convertTemperature_c2 },
+   { convertSupplyVoltage_c3 }
+};
+static const adc_channel_array_t Channels = {
+    (sizeof(AdcChannels)/sizeof(adc_channel_t)), AdcChannels
+};
+
+void read_transmit_sensors() {
+    float cur = AdcReadChannelResult(0);
+    float cur_sp = AdcReadChannelResult(1);
+    printf("Currents1: %.2f mA %.2f mA\n", 1000 * cur, 1000 * cur_sp);
+
+    float temp = AdcReadChannelResult(2);
+    printf("AN-Temp3: %.3f °C\n", temp);
+
+    float volt = AdcReadChannelResult(3);
+    printf("Supply: %.3f V\n", volt);
+    return;
+}
+
+
+
 
 int main(void) {
     // Start the systemTime running on RIT IRQ. The offset to start from is dependent on code runtime from reset up to here.
@@ -150,7 +206,8 @@ int main(void) {
 				   // To check on the test result and error message hit Debugger-'Pause' ('Suspend Debug Session') and check result structure....
 
 	// Select UART to be used for command line interface.
-	CliInit1(LPC_UART2);
+	//
+	CliInit2(LPC_UART2,9600);
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
@@ -163,6 +220,12 @@ int main(void) {
 
 	StopWatch_Init1(LPC_TIMER0);
 
+
+
+
+
+	AdcInit((adc_channel_array_t *)&Channels);
+	CliRegisterCommand("adcRead", read_transmit_sensors);
 
 	void *cards[2];
 
@@ -218,7 +281,128 @@ int main(void) {
 	main_showVersionCmd(0,0);
 	//main_testCmd(0,0);
 
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 18);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 18);
+
+	 /* Inbetriebnahme */
+
+
+
+
+	uint32_t fault = Chip_GPIO_GetPinState(LPC_GPIO, 2, 4);   /* SP-VCC-FAULT (Input)  */
+	uint32_t rail = Chip_GPIO_GetPinState(LPC_GPIO, 3, 25);  /* Supply Rail Indicator (Input)  */
+	uint32_t boot = Chip_GPIO_GetPinState(LPC_GPIO, 3, 26);   /* Boot-loader selection (Input)  */
+	uint32_t rbf = Chip_GPIO_GetPinState(LPC_GPIO, 0, 21);   /* Remove before flight (Input)  */
+	uint32_t wdt_trig = Chip_GPIO_GetPinState(LPC_GPIO, 4, 29);   /* Ext. WDT triggered latch (Input)  */
+
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 9);   		/* Reset WDT latch   */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 9);   		/* WDT latch reset set to high   */
+
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 19);   		/* Select thruster   */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 19);   	/* Unselect thruster   */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 26, true);   /* Thruster latchup (Test Output)  */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 26);   		/* Select thruster   */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 26);   	/* Unselect thruster   */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 26, false);   /* Thruster latchup (Input)  */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 5, true);   /* RS485 RX/TX sel  */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 5);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
+
+
+	// Disable I2C
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 30); /* I2C-A EN    */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 3);  /* I2C-B EN    */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 4);  /* I2C-C EN    */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 1);  /* I2C-D EN    */
+
+ 	// Enable I2C
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 30); /* I2C-A EN    */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 3);  /* I2C-B EN    */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 4);  /* I2C-C EN    */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 1);  /* I2C-D EN    */
+
+ 	//Disable supply
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 28);   /* SP-A Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 7);    /* SP-B Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 15);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 22);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 4, 28);   /* SD Supply Enable     */
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 29);   /* OBC Supply disable  */
+
+ 	//Enable supply
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 28);   /* SP-A Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 7);    /* SP-B Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 15);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 22);   /* SP-D Supply Enable   */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 4, 28);   /* SD Supply Enable     */
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 29);   /* SD Supply Enable     */
+
+ 	Chip_Clock_DisableCLKOUT();
+ 	//Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_MAINOSC, 1);
+ 	//Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_IRC, 1);
+ 	Chip_Clock_SetCLKOUTSource(SYSCTL_CLKOUTSRC_RTC, 1);
+ 	Chip_Clock_EnableCLKOUT();
+
+ 	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 27, 1); /* I2C0 SDA0 	    */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 28, 1); /* I2C0 SCL0 	    */
+
+ 	// "ONBOARD I2C"
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 19, 1); /* I2C1 SDA1         */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 20, 1); /* I2C1 SCL1         */
+
+ 	// "I2C A/B" Side panel bus
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 10, 1); /* I2C2 SDA2         */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 11, 1); /* I2C2 SCL2         */
+
+
+
+
+ 	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 5, true);
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
+ 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 5);
+ 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 5);
+
+
+
+ 	CliRegisterCommand("ledOn", ledOn);
+
+
+ 	/* Ende Inbetriebnahme*/
+
+ 	ado_timestamp ts = TimeGetCurrentTimestamp();
+ 	uint32_t count = 0;
+
+
 	while(1) {
+
+		 if (ts < TimeGetCurrentTimestamp())
+		 {
+			 ts = TimeGetCurrentTimestamp() + 500;
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 1, 18);
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+
+#if 0
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 27); /* I2C0 SDA0 	    */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 28); /* I2C0 SCL0 	    */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 19); /* I2C1 SDA1         */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 20); /* I2C1 SCL1         */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 10); /* I2C2 SDA2         */
+			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 11); /* I2C2 SCL2         */
+#endif
+
+
+			 //printf("Fault: %d\n", Chip_GPIO_GetPinState(LPC_GPIO,2,4)); // Fault pin
+
+			 			 //printf("Tick %i\n", count);
+			 //Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 6);
+			 //printf("ledOn\r\n"); // Loopback test
+			 //Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+			 count++;
+		 }
+
+
 		CliMain();
 		SdcMain(cards[0]);
 

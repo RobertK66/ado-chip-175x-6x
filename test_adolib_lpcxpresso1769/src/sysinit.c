@@ -112,6 +112,8 @@ STATIC const PINMUX_GRP_T pinmuxing[] = {									// ExpConnector Pins
 	{ 1, 30, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS2		*/ // J2-19
 	{ 1, 31, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP0-CS3		*/ // J2-20
 
+
+
 	{ 0, 4, IOCON_MODE_INACT | IOCON_FUNC0 } /* P0[4]		     */ // J2-38
 };
 
@@ -122,12 +124,14 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	{ 0, 3, IOCON_MODE_INACT | IOCON_FUNC1 }, /* LPC_UART0 Rx "Uart C"    */
 	{ 2, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Tx   "Uart D" !!!*/
 	{ 2, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 Rx   "Uart D"    */
-	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" */
+	{ 2, 5, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART1 DTR1 "Uart D" the RS485 Direction PIN -> "Output Enable" FUNC 2*/
 	{ 2, 8, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Tx "Uart B" */	// This prog uses this UART as CLI !!!
 	{ 2, 9, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART2 Rx "Uart B" */
 	{ 0, 0, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Tx "Uart A" */
 	{ 0, 1, IOCON_MODE_INACT | IOCON_FUNC2 }, /* LPC_UART3 Rx "Uart A" */
 
+
+#if 1
 	// "I2C C/D" Side panel bus
 	{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SDA0 	    */
 	{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC1 }, /* I2C0 SCL0 	    */
@@ -139,12 +143,25 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
 	// "I2C A/B" Side panel bus
 	{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SDA2         */
 	{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC2 }, /* I2C2 SCL2         */
+#else
+	// "I2C C/D" Side panel bus
+		{ 0, 27, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C0 SDA0 	    */
+		{ 0, 28, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C0 SCL0 	    */
+
+		// "ONBOARD I2C"
+		{ 0, 19, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C1 SDA1         */
+		{ 0, 20, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C1 SCL1         */
+
+		// "I2C A/B" Side panel bus
+		{ 0, 10, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C2 SDA2         */
+		{ 0, 11, IOCON_MODE_INACT | IOCON_FUNC0 }, /* I2C2 SCL2         */
+#endif
 
 	// SPI connected to SD Card slot
-	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC2 }, /* SCK   		 */
+	{ 0, 15, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK   		 */
 	{ 0, 16, IOCON_MODE_INACT | IOCON_FUNC0 }, /* (SSL) P2[5]	 */ // SPI only uses the SSL pin when in slave mode. To use as CS for Master this is normal IO
-	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MISO	 		 */
-	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC2 }, /* MOSI  		 */
+	{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MISO	 		 */
+	{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC3 }, /* MOSI  		 */
 
 	// SSP0 connected to MRAM01/02/03 (1/2/3)
 	{ 1, 20, IOCON_MODE_INACT | IOCON_FUNC3 }, /* SCK0           */
@@ -164,6 +181,41 @@ STATIC const PINMUX_GRP_T pinmuxingEM2[] = {
     { 0,  4, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS2     */
     { 1, 10, IOCON_MODE_INACT | IOCON_FUNC0 }, /* MRAM CS  SSP1-CS3     */
 
+	// GPIOs
+	{ 1, 18, IOCON_MODE_INACT | IOCON_FUNC0 }, /* Watchdog Feed    */
+	{ 2, 6, IOCON_MODE_INACT | IOCON_FUNC0 },  /* OBC LED    */
+	{ 2, 4, IOCON_MODE_INACT | IOCON_FUNC0 },  /* SP-VCC-FAULT (Input)  */
+	{ 3, 25, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Supply Rail Indicator (Input)  */
+	{ 3, 26, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Boot-loader selection (Input)  */
+	{ 0, 21, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Remove before flight (Input)  */
+	{ 4, 29, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Ext. WDT triggered latch (Input)  */
+	{ 1, 9, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Clear ext. WDT latch  */
+	{ 1, 26, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Thruster latchup (Input)  */
+	{ 1, 19, IOCON_MODE_INACT | IOCON_FUNC0 },  /* Thruster chip select  */
+
+	// Power supply
+	{ 1, 28, IOCON_MODE_INACT | IOCON_FUNC0 },  /* SP-A Supply Enable   */
+	{ 2, 7, IOCON_MODE_INACT | IOCON_FUNC0 },   /* SP-B Supply Enable   */
+	{ 1, 15, IOCON_MODE_INACT | IOCON_FUNC0 },  /* SP-D Supply Enable   */
+	{ 1, 22, IOCON_MODE_INACT | IOCON_FUNC0 },  /* SP-D Supply Enable   */
+	{ 4, 28, IOCON_MODE_INACT | IOCON_FUNC0 },  /* SD Supply Enable     */
+	{ 0, 29, IOCON_MODE_INACT | IOCON_FUNC0 },  /* OBC Supply disable (not connected in EM2) */
+
+	// I2C Routing
+	{ 0, 30, IOCON_MODE_INACT | IOCON_FUNC0 },  /* I2C-A EN    */
+	{ 2, 3, IOCON_MODE_INACT | IOCON_FUNC0 },  /* I2C-B EN    */
+	{ 1, 4, IOCON_MODE_INACT | IOCON_FUNC0 },  /* I2C-C EN    */
+	{ 1, 1, IOCON_MODE_INACT | IOCON_FUNC0 },  /* I2C-D EN    */
+
+	// ADC
+	{ 0,23 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Main supply current (Analog Input 0)  */
+	{ 0,24 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Sidpanel supply current (Analog Input 1)  */
+	{ 0,25 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Temperature (Analog Input 2)  */
+	{ 0,26 , IOCON_MODE_INACT | IOCON_FUNC1 },  /* Supply Voltage (Analog Input 3)  */
+
+	{ 1, 27, IOCON_MODE_INACT | IOCON_FUNC1},	/* CLKOUT */
+
+
 };
 
 void ClimbObcEm2Init(void) {
@@ -171,8 +223,85 @@ void ClimbObcEm2Init(void) {
     Chip_IOCON_SetPinMuxing(LPC_IOCON, pinmuxingEM2, sizeof(pinmuxingEM2) / sizeof(PINMUX_GRP_T));
 	Chip_GPIO_Init(LPC_GPIO);
 
-	// IO inits
-	//....
+	/* --- SPI pins no open drain --- */
+		Chip_IOCON_DisableOD(LPC_IOCON, 0, 15);
+		Chip_IOCON_DisableOD(LPC_IOCON, 0, 16);
+		Chip_IOCON_DisableOD(LPC_IOCON, 0, 17);
+		Chip_IOCON_DisableOD(LPC_IOCON, 0, 18);
+
+	// SD CS
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 16, true);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 16);
+
+	// Watchdog feed
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 18, true);
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 18);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 18);
+
+	/* OBC LED    */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 6, true);
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 6);
+
+
+// GPIOs
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 4, false);   /* SP-VCC-FAULT (Input)  */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 3, 25, false);  /* Supply Rail Indicator (Input)  */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 3, 26, false);   /* Boot-loader selection (Input)  */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 21, false);   /* Remove before flight (Input)  */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 4, 29, false);   /* Ext. WDT triggered latch (Input)  */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 9, true);   	/* Clear ext. WDT latch  */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 9);   		/* WDT latch set to high   */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 26, false);   /* Thruster latchup (Input)  */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 19, true);   /* Thruster chip select  */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 19);   	/* Unselect thruster   */
+
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 30, true); /* I2C-A EN    */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 3, true);  /* I2C-B EN    */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 4, true);  /* I2C-C EN    */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 1, true);  /* I2C-D EN    */
+
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 30); /* I2C-A EN    */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 3);  /* I2C-B EN    */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 4);  /* I2C-C EN    */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 1);  /* I2C-D EN    */
+
+
+	// Power supply
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 28, true);   /* SP-A Supply Enable   */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 7, true);    /* SP-B Supply Enable   */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 15, true);   /* SP-D Supply Enable   */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 22, true);   /* SP-D Supply Enable   */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 4, 28, true);   /* SD Supply Enable     */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 29, true);   /* OBC Supply disable  */
+
+	//Enable supply
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 28);   /* SP-A Supply Enable   */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 7);    /* SP-B Supply Enable   */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 15);   /* SP-D Supply Enable   */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 22);   /* SP-D Supply Enable   */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 4, 28);   /* SD Supply Enable     */
+	Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 29);   /* OBC Supply disable  */
+
+
+	// CS for MRAM 01/02/03
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0, 22, true); /* MRAM CS  SSP0-CS1 */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 11, true); /* MRAM CS  SSP0-CS2 */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2, 12, true); /* MRAM CS  SSP0-CS3 */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 22); /* MRAM CS  SSP0-CS1 */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 11); /* MRAM CS  SSP0-CS2 */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2, 12); /* MRAM CS  SSP0-CS3 */
+
+	    // CS for MRAMs 11/12/13
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 2,  2, true); /* MRAM CS  SSP1-CS1     */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 0,  4, true); /* MRAM CS  SSP1-CS2     */
+	Chip_GPIO_WriteDirBit(LPC_GPIO, 1, 10, true); /* MRAM CS  SSP1-CS3     */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 2,  2); /* MRAM CS  SSP1-CS1     */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0,  4); /* MRAM CS  SSP1-CS2     */
+	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 10); /* MRAM CS  SSP1-CS3     */
+
+
 
 }
 
