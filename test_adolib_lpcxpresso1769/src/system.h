@@ -25,6 +25,7 @@
 //#define sd_cs_high()	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4)
 //#define sd_cs_low()		Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4)
 
+#define CLI_CFG_ENDOFLINE_CHAR '\r'
 
 #if DEBUG_TESTCONFIG_2
 	// This test config is used to check on available module configs

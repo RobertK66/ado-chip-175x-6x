@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mod/cli.h>
-#include "ado_mram.h"
+#include <mod/ado_mram.h>
 
 // prototypes
 void ReadMramCmd(int argc, char *argv[]);

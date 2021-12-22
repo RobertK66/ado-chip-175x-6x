@@ -15,7 +15,7 @@
 #include <math.h>
 
 #include <ado_libmain.h>
-#include <ado_time.h>
+//#include <ado_time.h>
 #include <ado_test.h>
 #include <ado_sspdma.h>
 #include <ado_spi.h>
@@ -31,7 +31,7 @@
 #include "tests/test_crc.h"
 #include "tests/test_sspdma.h"
 
-#include "mod/ado_sdcard.h"
+#include <mod/ado_sdcard.h>
 #include "mod/ado_sdcard_cli.h"
 #include "mod/ado_eventlogger.h"
 #include "mod/ado_mram.h"
@@ -188,6 +188,15 @@ void read_transmit_sensors() {
 }
 
 
+static const sdcard_init_t SdCards[] = {
+        {ADO_SBUS_SPI, CsSdCard0},
+};
+
+static sdcard_init_array_t Cards = {
+    (sizeof(SdCards)/sizeof(sdcard_init_t)), SdCards
+};
+
+
 
 
 int main(void) {
@@ -198,7 +207,7 @@ int main(void) {
         resetCount = GetResetCountFromPersistence();
         startOffsetMs = 100;     //?? TODO: Measure this value....
     }
-    TimeInit(startOffsetMs, resetCount);
+    //TimeInit(startOffsetMs, resetCount);
     IncrementResetCount();
 
 	// 'special test module'
@@ -211,12 +220,12 @@ int main(void) {
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
-	uint32_t userBaseEventNr = LogInitEventLogger();
-	userBaseEventNr++;      // dummy usage to avoid warning....
+	//uint32_t userBaseEventNr = LogInitEventLogger();
+	//userBaseEventNr++;      // dummy usage to avoid warning....
 
-	ado_event_reset_t event = ado_event_reset_default;
-	event.epochNr = resetCount;
-	LogUsrEvent(&event);
+//	ado_event_reset_t event = ado_event_reset_default;
+//	event.epochNr = resetCount;
+//	LogUsrEvent(&event);
 
 	StopWatch_Init1(LPC_TIMER0);
 
@@ -227,7 +236,7 @@ int main(void) {
 	AdcInit((adc_channel_array_t *)&Channels);
 	CliRegisterCommand("adcRead", read_transmit_sensors);
 
-	void *cards[2];
+//	void *cards[2];
 
 	// SSPx init:
 	// With sys clck 96MHz: Possible steps are: 12MHz, 16Mhz, 24Mhz, 48Mhz (does not work with my external sd card socket)
@@ -237,8 +246,9 @@ int main(void) {
     ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
 	ADO_SPI_Init(0x08, SPI_CLOCK_MODE3);                                   // Clock Divider 0x08 -> fastest, must be even: can be up to 0xFE for slower SPI Clocking
 
-	cards[0] = SdcInitSPI(CsSdCard0);
-	AdoSdcardCliInit(1, cards);
+
+	_SdcInitAll(&Cards);
+	AdoSdcardCliInit(1);
 #else
 	//ADO_SSP_Init(ADO_SSP0, 24000000, SSP_CLOCK_MODE3);
     ADO_SSP_Init(ADO_SSP1, 24000000, SSP_CLOCK_MODE3);
@@ -371,46 +381,46 @@ int main(void) {
 
  	/* Ende Inbetriebnahme*/
 
- 	ado_timestamp ts = TimeGetCurrentTimestamp();
+ 	//ado_timestamp ts = TimeGetCurrentTimestamp();
  	uint32_t count = 0;
 
 
 	while(1) {
 
-		 if (ts < TimeGetCurrentTimestamp())
-		 {
-			 ts = TimeGetCurrentTimestamp() + 500;
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 1, 18);
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
-
-#if 0
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 27); /* I2C0 SDA0 	    */
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 28); /* I2C0 SCL0 	    */
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 19); /* I2C1 SDA1         */
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 20); /* I2C1 SCL1         */
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 10); /* I2C2 SDA2         */
-			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 11); /* I2C2 SCL2         */
-#endif
-
-
-			 //printf("Fault: %d\n", Chip_GPIO_GetPinState(LPC_GPIO,2,4)); // Fault pin
-
-			 			 //printf("Tick %i\n", count);
-			 //Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 6);
-			 //printf("ledOn\r\n"); // Loopback test
-			 //Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
-			 count++;
-		 }
+//		 if (ts < TimeGetCurrentTimestamp())
+//		 {
+//			 ts = TimeGetCurrentTimestamp() + 500;
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 1, 18);
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+//
+//#if 0
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 27); /* I2C0 SDA0 	    */
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 28); /* I2C0 SCL0 	    */
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 19); /* I2C1 SDA1         */
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 20); /* I2C1 SCL1         */
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 10); /* I2C2 SDA2         */
+//			 Chip_GPIO_SetPinToggle(LPC_GPIO, 0, 11); /* I2C2 SCL2         */
+//#endif
+//
+//
+//			 //printf("Fault: %d\n", Chip_GPIO_GetPinState(LPC_GPIO,2,4)); // Fault pin
+//
+//			 			 //printf("Tick %i\n", count);
+//			 //Chip_GPIO_SetPinOutLow(LPC_GPIO, 2, 6);
+//			 //printf("ledOn\r\n"); // Loopback test
+//			 //Chip_GPIO_SetPinToggle(LPC_GPIO, 2, 6);
+//			 count++;
+//		 }
 
 
 		CliMain();
-		SdcMain(cards[0]);
+		SdcMain();
 
 #ifndef BOARD_CLIMB_EM2
 		SdcMain(cards[1]);
 #endif
 		AdoCliMain();
-		LogMain();
+		//LogMain();
 		MramMain();
 	}
 
@@ -544,27 +554,27 @@ void IncrementResetCount(void) {
 }
 
 void main_showSysTimeCmd(int argc, char *argv[]) {
-    ado_tim_systemtime_t time;
-    TimeGetCurrentSystemTime(&time);
-
-    printf("Epoch #: %d ", time.epochNumber);
-    if (time.utcOffset.year == 0) {
-            printf("(no UTC sync)\n");
-        } else {
-            printf("(started %d - ", time.utcOffset.year);
-            printf("%d.%05d)\n", (int)time.utcOffset.dayOfYear,(int)((time.utcOffset.dayOfYear - (int)time.utcOffset.dayOfYear) * 100000));
-        }
-    printf("Epoch ms: %d\n", time.msAfterStart);
-
-    RTC_TIME_T t;
-    TimeGetCurrentUtcTime(&t);
-    printf("Utc: %02d.%02d.%04d %02d:%02d:%02d\n",
-            t.time[RTC_TIMETYPE_DAYOFMONTH],
-            t.time[RTC_TIMETYPE_MONTH],
-            t.time[RTC_TIMETYPE_YEAR],
-            t.time[RTC_TIMETYPE_HOUR],
-            t.time[RTC_TIMETYPE_MINUTE],
-            t.time[RTC_TIMETYPE_SECOND]);
+//    ado_tim_systemtime_t time;
+//    TimeGetCurrentSystemTime(&time);
+//
+//    printf("Epoch #: %d ", time.epochNumber);
+//    if (time.utcOffset.year == 0) {
+//            printf("(no UTC sync)\n");
+//        } else {
+//            printf("(started %d - ", time.utcOffset.year);
+//            printf("%d.%05d)\n", (int)time.utcOffset.dayOfYear,(int)((time.utcOffset.dayOfYear - (int)time.utcOffset.dayOfYear) * 100000));
+//        }
+//    printf("Epoch ms: %d\n", time.msAfterStart);
+//
+//    RTC_TIME_T t;
+//    TimeGetCurrentUtcTime(&t);
+//    printf("Utc: %02d.%02d.%04d %02d:%02d:%02d\n",
+//            t.time[RTC_TIMETYPE_DAYOFMONTH],
+//            t.time[RTC_TIMETYPE_MONTH],
+//            t.time[RTC_TIMETYPE_YEAR],
+//            t.time[RTC_TIMETYPE_HOUR],
+//            t.time[RTC_TIMETYPE_MINUTE],
+//            t.time[RTC_TIMETYPE_SECOND]);
 }
 
 void main_setUtcTimeCmd(int argc, char *argv[]) {
@@ -587,5 +597,5 @@ void main_setUtcTimeCmd(int argc, char *argv[]) {
     if (argc > 4 ) { t.time[RTC_TIMETYPE_MINUTE] = atoi(argv[4]); }
     if (argc > 5 ) { t.time[RTC_TIMETYPE_SECOND] = atoi(argv[5]); }
 
-    TimeSetUtc2(&t);
+    //TimeSetUtc2(&t);
 }

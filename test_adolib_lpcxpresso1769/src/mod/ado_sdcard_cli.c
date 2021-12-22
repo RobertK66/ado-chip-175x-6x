@@ -6,7 +6,7 @@
  */
 
 #include "ado_sdcard_cli.h"
-#include "ado_sdcard.h"
+#include <mod/ado_sdcard.h>
 
 #include <ado_crc.h>
 #include <ado_sspdma.h>
@@ -32,7 +32,7 @@ void SdcReadFATBootSectorBlockFinished (sdc_res_t result, uint32_t blockNr, uint
 
 static int  cardCnt = 0;            // Count of available cards
 static void **sdCards;              // Pointers to available sdCards
-static void *selectedCard = 0;      // Currently selected card (pointer)
+static uint8_t selectedCard = 0;      // Currently selected card (index)
 
 // FAT32 defines
 typedef struct partitionInfo_Structure {
@@ -106,13 +106,13 @@ uint16_t         sdcDumpLines = 0;
 uint32_t         sdcCurRwBlockNr;
 
 
-void AdoSdcardCliInit(int cardC, void *cardV[]) {
+void AdoSdcardCliInit(int cardC) {
     if (cardC>0) {
         // Lets remember the array of SdCardPointers
         cardCnt = cardC;
-        sdCards = cardV;
+        // sdCards = cardV;
         // switch to the first card in Array
-        selectedCard = sdCards[0];
+        selectedCard = 0; //sdCards[0];
 
         CliRegisterCommand("sdcCard", SdcSwitchCardCmd);
         CliRegisterCommand("sdcInit", SdcInitCmd);
@@ -127,14 +127,14 @@ void SdcSwitchCardCmd(int argc, char *argv[]) {
     if (argc == 1) {
         int cardNr = atoi(argv[0]);
         if ((cardNr >= 0) && (cardNr < cardCnt)) {
-            selectedCard = sdCards[cardNr];
+            selectedCard = cardNr;
             printf("SDCard %d selected.\n", cardNr);
         }
     }
 }
 
 void SdcInitCmd(int argc, char *argv[]) {
-    if (selectedCard != 0) {
+    if (selectedCard < cardCnt) {
         SdcCardinitialize(selectedCard);
     }
 }
