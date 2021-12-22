@@ -19,7 +19,7 @@
 
 typedef struct {
 	ado_sbus_id_t	 		busnr;
-	const PINMUX_GRP_T2*  	csPin;  //void(*csHandler)(bool select);
+	const PINMUX_GRP_T2*  	csPin;
 } mram_chipinit_t;
 
 typedef struct {

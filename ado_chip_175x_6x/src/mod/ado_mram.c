@@ -67,15 +67,14 @@ void MramActivate(uint32_t context){
 	Chip_GPIO_SetPinState(LPC_GPIO, ((mram_chip_t *)context)->csPin->pingrp,
 			                        ((mram_chip_t *)context)->csPin->pinnum,
 									!((mram_chip_t *)context)->csPin->initval);
-    //((mram_chip_t *)context)->chipSelectCb(true);
 }
 
 // Be careful here! This Callback is called from IRQ !!!
 // Do not do any complicated logic here!!!
 void MramJobFinished(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) {
     mram_chip_t * mramPtr = (mram_chip_t *)context;
-    //mramPtr->chipSelectCb(false);
-    // set Cs to its initval -> not selected
+
+    // Unselect CS by returning to its initval.
     Chip_GPIO_SetPinState(LPC_GPIO, mramPtr->csPin->pingrp, mramPtr->csPin->pinnum, mramPtr->csPin->initval);
     mramPtr->busyFlag = false;
     if (jobStatus == ADO_SSP_JOBDONE) {
