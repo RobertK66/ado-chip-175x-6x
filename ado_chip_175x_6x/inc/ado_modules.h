@@ -11,7 +11,7 @@
 
 #include <chip.h>
 
-// common defines/structures used for module composition
+// common defines/structures used for module composition.
 typedef struct {
 	void  (*init)(void* initData);
 	void  (*main)(void);
