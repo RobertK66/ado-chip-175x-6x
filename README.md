@@ -13,6 +13,6 @@ to get a faster lift-of of any project using the LPC176x processor.
 
 ### [User Manual](doc/user_manual.md)
 
- 
+... 
 
 ### [Development](doc/dev_manual.md)
