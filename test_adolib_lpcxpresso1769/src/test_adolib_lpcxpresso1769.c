@@ -216,7 +216,7 @@ int main(void) {
 
 	// Select UART to be used for command line interface.
 	//
-	CliInit2(LPC_UART2,9600);
+	CliInit2(LPC_UART2,115200);
 	// or use SWO Trace mode if your probe supports this. (not avail on LPXXpresso1769 board)
 	//CliInitSWO();			// This configures SWO ITM Console as CLI in/output
 
