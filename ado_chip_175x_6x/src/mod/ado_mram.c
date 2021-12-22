@@ -28,7 +28,7 @@ typedef struct mram_chip_s {
     ado_sspid_t     busNr;              // The SSP bus used for this Chip
     volatile bool   busyFlag;           // indicates that we wait for an bus job to finish
     mram_status_t   status;             // The current status of this Chip
-    void (*chipSelectCb)(bool select);  // Callback to Chip Select GPIO
+    const PINMUX_GRP_T2* csPin;			// void (*chipSelectCb)(bool select);  // Callback to Chip Select GPIO
     void (*ioFinishedCb)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 
     uint8_t         *ioDataPtr;         // Pointer to calllers original memory
@@ -52,6 +52,9 @@ typedef struct {
 static mram_chip_t MramChipStates[MRAM_CHIP_CNT];
 
 //// prototypes
+void MramInit(uint8_t chipIdx, ado_sspid_t busNr, const PINMUX_GRP_T2* csPin);
+void MramInitSPI(uint8_t chipIdx, const PINMUX_GRP_T2* csPin);
+
 //void ReadMramCmd(int argc, char *argv[]);
 //void WriteMramCmd(int argc, char *argv[]);
 //void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
@@ -61,14 +64,19 @@ static mram_chip_t MramChipStates[MRAM_CHIP_CNT];
 // Be careful here! This Callback is sometimes called from IRQ !!!
 // Do not do any complicated logic here!!!
 void MramActivate(uint32_t context){
-    ((mram_chip_t *)context)->chipSelectCb(true);
+	Chip_GPIO_SetPinState(LPC_GPIO, ((mram_chip_t *)context)->csPin->pingrp,
+			                        ((mram_chip_t *)context)->csPin->pinnum,
+									!((mram_chip_t *)context)->csPin->initval);
+    //((mram_chip_t *)context)->chipSelectCb(true);
 }
 
 // Be careful here! This Callback is called from IRQ !!!
 // Do not do any complicated logic here!!!
 void MramJobFinished(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) {
     mram_chip_t * mramPtr = (mram_chip_t *)context;
-    mramPtr->chipSelectCb(false);
+    //mramPtr->chipSelectCb(false);
+    // set Cs to its initval -> not selected
+    Chip_GPIO_SetPinState(LPC_GPIO, mramPtr->csPin->pingrp, mramPtr->csPin->pinnum, mramPtr->csPin->initval);
     mramPtr->busyFlag = false;
     if (jobStatus == ADO_SSP_JOBDONE) {
         if (mramPtr->status == MRAM_STAT_NOT_INITIALIZED) {
@@ -90,11 +98,11 @@ void MramJobFinished(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxDat
     }
 }
 
-void MramInit(uint8_t chipIdx, ado_sspid_t busNr, void(*csHandler)(bool select)) {
+void MramInit(uint8_t chipIdx, ado_sspid_t busNr, const PINMUX_GRP_T2* csPin) { //void(*csHandler)(bool select)) {
     if (chipIdx < MRAM_CHIP_CNT) {
         mram_chip_t *mramPtr =  &MramChipStates[chipIdx];
         mramPtr->status = MRAM_STAT_NOT_INITIALIZED;
-        mramPtr->chipSelectCb = csHandler;
+        mramPtr->csPin = csPin; //chipSelectCb = csHandler;
         mramPtr->busNr = busNr;
 
         //	/* Init mram  read Status register
@@ -124,17 +132,19 @@ void _MramInitAll(mram_chipinit_array_t *chips) {
 		chips->entryCount = MRAM_CHIP_CNT;
 	}
 	for (int i = 0; i < chips->entryCount; i++ ){
-		MramInit(i, chips->chipinits[i].busnr, chips->chipinits[i].csHandler);
+		if (chips->chipinits[i].busnr == ADO_SBUS_SPI) {
+			MramInitSPI(i, chips->chipinits[i].csPin);
+		} else {
+			MramInit(i, chips->chipinits[i].busnr, chips->chipinits[i].csPin); //csHandler);
+		}
 	}
 }
 
-
-
-void MramInitSPI(uint8_t chipIdx, void(*csHandler)(bool select)) {
+void MramInitSPI(uint8_t chipIdx, const PINMUX_GRP_T2* csPin) {  // void(*csHandler)(bool select)) {
     if (chipIdx < MRAM_CHIP_CNT) {
         mram_chip_t *mramPtr =  &MramChipStates[chipIdx];
         mramPtr->status = MRAM_STAT_NOT_INITIALIZED;
-        mramPtr->chipSelectCb = csHandler;
+        mramPtr->csPin = csPin;
         mramPtr->busNr = 99;
 
         //  /* Init mram  read Status register
