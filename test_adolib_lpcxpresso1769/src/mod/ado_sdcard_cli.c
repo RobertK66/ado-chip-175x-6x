@@ -31,7 +31,7 @@ void SdcReadFATBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data,
 void SdcReadFATBootSectorBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len);
 
 static int  cardCnt = 0;            // Count of available cards
-static void **sdCards;              // Pointers to available sdCards
+//static void **sdCards;              // Pointers to available sdCards
 static uint8_t selectedCard = 0;      // Currently selected card (index)
 
 // FAT32 defines

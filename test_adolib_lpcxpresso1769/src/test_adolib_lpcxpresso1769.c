@@ -94,40 +94,75 @@ void IncrementResetCount(void);
     #define MRAM5_CS_PIN   25
 #endif
 
-void CsMram0(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, MRAM0_CS_PORT, MRAM0_CS_PIN, !select);
+enum pinidx {
+    PINIDX_SPI_CS_SD = 0,
+    PINIDX_SSP0_MRAM_CS1,
+    PINIDX_SSP0_MRAM_CS2,
+    PINIDX_SSP0_MRAM_CS3,
+    PINIDX_SSP1_MRAM_CS1,
+    PINIDX_SSP1_MRAM_CS2,
+    PINIDX_SSP1_MRAM_CS3
+};
 
-}
+static const PINMUX_GRP_T2 csdefinitions[] = {
+    //  GPIOs also define the direction, OpenDrain and initial value bits of the PINMUX_GRP_T2 structure.
+    [PINIDX_SPI_CS_SD]     = { 0, 16, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_ENABLED,  IOCON_VAL_HIGH },
+    [PINIDX_SSP0_MRAM_CS1] = { MRAM0_CS_PORT, MRAM0_CS_PIN, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_DISABLED, IOCON_VAL_HIGH },
+    [PINIDX_SSP0_MRAM_CS2] = { MRAM1_CS_PORT, MRAM1_CS_PIN, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_DISABLED, IOCON_VAL_HIGH },
+    [PINIDX_SSP0_MRAM_CS3] = { MRAM2_CS_PORT, MRAM2_CS_PIN, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_DISABLED, IOCON_VAL_HIGH },
+    [PINIDX_SSP1_MRAM_CS1] = { MRAM3_CS_PORT, MRAM3_CS_PIN, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_DISABLED, IOCON_VAL_HIGH },
+    [PINIDX_SSP1_MRAM_CS2] = { MRAM4_CS_PORT, MRAM4_CS_PIN, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_DISABLED, IOCON_VAL_HIGH },
+    [PINIDX_SSP1_MRAM_CS3] = { MRAM5_CS_PORT, MRAM5_CS_PIN, IOCON_MODE_INACT | IOCON_FUNC0, IOCON_DIR_OUTPUT, IOCON_OD_DISABLED, IOCON_VAL_HIGH },
+};
 
-void CsMram1(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, MRAM1_CS_PORT, MRAM1_CS_PIN, !select);
+#define PTR_FROM_IDX(idx) (&csdefinitions[idx])
 
-}
+static const mram_chipinit_t Mrams[] = {
+        {ADO_SSP0, PTR_FROM_IDX(PINIDX_SSP0_MRAM_CS1) },
+        {ADO_SSP0, PTR_FROM_IDX(PINIDX_SSP0_MRAM_CS2) },
+        {ADO_SSP0, PTR_FROM_IDX(PINIDX_SSP0_MRAM_CS3) },
+        {ADO_SSP1, PTR_FROM_IDX(PINIDX_SSP1_MRAM_CS1) },
+        {ADO_SSP1, PTR_FROM_IDX(PINIDX_SSP1_MRAM_CS2) },
+        {ADO_SSP1, PTR_FROM_IDX(PINIDX_SSP1_MRAM_CS3) },
+};
+static mram_chipinit_array_t Chips = {
+    (sizeof(Mrams)/sizeof(mram_chipinit_t)), Mrams
+};
 
-void CsMram2(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, MRAM2_CS_PORT, MRAM2_CS_PIN, !select);
-
-}
-
-void CsMram3(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, MRAM3_CS_PORT, MRAM3_CS_PIN, !select);
-
-}
-
-void CsMram4(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, MRAM4_CS_PORT, MRAM4_CS_PIN, !select);
-
-}
-
-void CsMram5(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, MRAM5_CS_PORT, MRAM5_CS_PIN, !select);
-
-}
-
-
-void CsSdCard0(bool select) {
-    Chip_GPIO_SetPinState(LPC_GPIO, 0, 16, !select);
-}
+//void CsMram0(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, MRAM0_CS_PORT, MRAM0_CS_PIN, !select);
+//
+//}
+//
+//void CsMram1(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, MRAM1_CS_PORT, MRAM1_CS_PIN, !select);
+//
+//}
+//
+//void CsMram2(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, MRAM2_CS_PORT, MRAM2_CS_PIN, !select);
+//
+//}
+//
+//void CsMram3(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, MRAM3_CS_PORT, MRAM3_CS_PIN, !select);
+//
+//}
+//
+//void CsMram4(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, MRAM4_CS_PORT, MRAM4_CS_PIN, !select);
+//
+//}
+//
+//void CsMram5(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, MRAM5_CS_PORT, MRAM5_CS_PIN, !select);
+//
+//}
+//
+//
+//void CsSdCard0(bool select) {
+//    Chip_GPIO_SetPinState(LPC_GPIO, 0, 16, !select);
+//}
 
 #ifndef BOARD_CLIMB_EM2
 void CsSdCard1(bool select) {
@@ -189,7 +224,7 @@ void read_transmit_sensors() {
 
 
 static const sdcard_init_t SdCards[] = {
-        {ADO_SBUS_SPI, CsSdCard0},
+        {ADO_SBUS_SPI, &csdefinitions[PINIDX_SPI_CS_SD]},
 };
 
 static sdcard_init_array_t Cards = {
@@ -260,23 +295,25 @@ int main(void) {
 	AdoSdcardCliInit(2, cards);
 #endif
 
-	// 6 MRAM chip inits
-#ifdef BOARD_CLIMB_EM2
-    MramInit(0, ADO_SSP0, CsMram0);
-    MramInit(1, ADO_SSP0, CsMram1);
-    MramInit(2, ADO_SSP0, CsMram2);
-#else
-    //  MramInit(0, ADO_SSP0, CsMram0);
-    //  MramInit(1, ADO_SSP0, CsMram1);
-    //  MramInit(2, ADO_SSP0, CsMram2);
-    MramInitSPI(0, CsMram0);
-    MramInitSPI(1, CsMram1);
-    MramInitSPI(2, CsMram2);
-#endif
 
-    MramInit(3, ADO_SSP1, CsMram3);
-    MramInit(4, ADO_SSP1, CsMram4);
-    MramInit(5, ADO_SSP1, CsMram5);
+	MramInitAll(&Chips);
+//	// 6 MRAM chip inits
+//#ifdef BOARD_CLIMB_EM2
+//    MramInit(0, ADO_SSP0, CsMram0);
+//    MramInit(1, ADO_SSP0, CsMram1);
+//    MramInit(2, ADO_SSP0, CsMram2);
+//#else
+//    //  MramInit(0, ADO_SSP0, CsMram0);
+//    //  MramInit(1, ADO_SSP0, CsMram1);
+//    //  MramInit(2, ADO_SSP0, CsMram2);
+//    MramInitSPI(0, CsMram0);
+//    MramInitSPI(1, CsMram1);
+//    MramInitSPI(2, CsMram2);
+//#endif
+//
+//    MramInit(3, ADO_SSP1, CsMram3);
+//    MramInit(4, ADO_SSP1, CsMram4);
+//    MramInit(5, ADO_SSP1, CsMram5);
 
     // CLI commands registering
     AdoMramCliInit();
@@ -382,7 +419,7 @@ int main(void) {
  	/* Ende Inbetriebnahme*/
 
  	//ado_timestamp ts = TimeGetCurrentTimestamp();
- 	uint32_t count = 0;
+ 	//uint32_t count = 0;
 
 
 	while(1) {
