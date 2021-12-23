@@ -32,6 +32,11 @@ typedef struct {
 	const sdcard_init_t* chipinits;
 } sdcard_init_array_t;
 
+typedef struct {
+	uint8_t  token;
+	uint8_t  data[512];
+	uint8_t  crc[2];
+} sdcard_block512;
 
 // ADO Mudule API
 void _SdcInitAll(sdcard_init_array_t* cards);
@@ -40,7 +45,9 @@ void SdcMain();
 
 // SDC-Client API
 void SdcCardinitialize(uint8_t cardIdx);
+bool SdcIsCardinitialized(uint8_t cardIdx);
 void SdcReadBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len));
-void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len));
+//void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len));
+void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, sdcard_block512 *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len));
 
 #endif /* MOD_ADO_SDCARD_H_ */

@@ -552,7 +552,8 @@ void SdcReadBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data,  void (
 	}
 }
 
-void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
+//void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
+void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, sdcard_block512 *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
 	if (cardIdx <= cardCnt) {
 		ado_sdcard_t *sdCard = sdCards[cardIdx];
 
@@ -567,7 +568,11 @@ void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (
 		}
 
 		sdCard->blockFinishedHandler = finishedHandler;
-		sdCard->dataBuffer = data;          // TODO: at this moment we expect this to hold the start token on [0] and 2 Checksum bytes on position 513, 514 -> refactor to keep this away from Client....
+		data->token = 0xFE;             // Data Block Start token.
+		uint16_t crc = CRC16_XMODEM((uint8_t*)data, 512);
+		data->crc[0] = (uint8_t)(crc >> 8);
+		data->crc[1] = (uint8_t) crc;
+		sdCard->dataBuffer = (uint8_t*)data;
 
 		if (sdCard->sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
 			SdcSendCommand(sdCard, ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, arg);
@@ -575,4 +580,12 @@ void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (
 			finishedHandler(SDC_RES_ERROR, blockNr, 0, 0);
 		}
 	}
+}
+
+bool SdcIsCardinitialized(uint8_t cardIdx) {
+	bool retVal = false;
+	if (cardIdx <= cardCnt) {
+		retVal = (sdCards[cardIdx]->sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED);
+	}
+	return retVal;
 }
