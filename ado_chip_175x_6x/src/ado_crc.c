@@ -29,3 +29,19 @@ uint16_t CRC16_0x1021(const uint8_t* data_p, uint16_t length, uint16_t start){
 //    }
 //    return (sum2 << 8) | sum1;
 //}
+
+
+uint8_t CRC8_0x31(const uint8_t* data_p, uint16_t len, uint8_t start) {
+	uint8_t crc = start;
+	size_t i, j;
+	for (i = 0; i < len; i++) {
+		crc ^= data_p[i];
+		for (j = 0; j < 8; j++) {
+			if ((crc & 0x80) != 0)
+				crc = (uint8_t)((crc << 1) ^ 0x31);
+			else
+				crc <<= 1;
+		}
+	}
+	return crc;
+}
