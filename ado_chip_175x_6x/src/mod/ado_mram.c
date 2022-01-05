@@ -49,7 +49,7 @@ typedef struct mram_chip_s {
     volatile bool   busyFlag;           // indicates that we wait for an bus job to finish
     mram_status_t   status;             // The current status of this Chip
     const PINMUX_GRP_T2* csPin;			// void (*chipSelectCb)(bool select);  // Callback to Chip Select GPIO
-    void (*ioFinishedCb)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+    void (*ioFinishedCb)(uint8_t chipIdx, mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 
     uint8_t         *ioDataPtr;         // Pointer to calllers original memory
     uint32_t        ioAdr;              // Callers original address
@@ -162,7 +162,7 @@ void MramMain() {
          	} else if (mramPtr->status == MRAM_STAT_RX_INPROGRESS) {
                 // Rx job finished.
                 mramPtr->status = MRAM_STAT_IDLE;
-                mramPtr->ioFinishedCb(MRAM_RES_SUCCESS, mramPtr->ioAdr, mramPtr->ioDataPtr, mramPtr->ioLen);
+                mramPtr->ioFinishedCb(chipIdx, MRAM_RES_SUCCESS, mramPtr->ioAdr, mramPtr->ioDataPtr, mramPtr->ioLen);
             } else if (mramPtr->status == MRAM_STAT_WREN_SET) {
                 // Write enable set job finished
                 //Initiate write data job
@@ -187,7 +187,7 @@ void MramMain() {
             } else if (mramPtr->status == MRAM_STAT_WREN_CLR) {
                 // Write disable job finished. This finally ends the Write-IO
                 mramPtr->status = MRAM_STAT_IDLE;
-                mramPtr->ioFinishedCb(MRAM_RES_SUCCESS, mramPtr->ioAdr, mramPtr->ioDataPtr, mramPtr->ioLen);
+                mramPtr->ioFinishedCb(chipIdx, MRAM_RES_SUCCESS, mramPtr->ioAdr, mramPtr->ioDataPtr, mramPtr->ioLen);
             } else if (mramPtr->status == MRAM_STAT_ERROR_SIG) {
             	mram_event_error_t evtdata;
             	evtdata.chipIdx = chipIdx;
@@ -202,32 +202,32 @@ void MramMain() {
 
 
 
-void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
+void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(uint8_t chipIdx,mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
     mram_chip_t *mramPtr = 0;
     if (chipIdx < MRAM_CHIP_CNT) {
         mramPtr =  &MramChipStates[chipIdx];
     } else {
-        finishedHandler(MRAM_RES_INVALID_CHIPIDX, adr, 0, len);
+        finishedHandler(chipIdx, MRAM_RES_INVALID_CHIPIDX, adr, 0, len);
         return;
     }
 
     if (mramPtr->status != MRAM_STAT_IDLE) {
-		finishedHandler(MRAM_RES_BUSY, adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_BUSY, adr, 0, len);
 		return;
 	}
 
 	if (rx_data == NULL) {
-		finishedHandler(MRAM_RES_DATA_PTR_INVALID, adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_DATA_PTR_INVALID, adr, 0, len);
 		return;
 	}
 
 	if (len > MRAM_MAX_READ_SIZE) {
-		finishedHandler(MRAM_RES_RX_LEN_OVERFLOW, adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_RX_LEN_OVERFLOW, adr, 0, len);
 		return;
 	}
 
 	if (adr + len >  0x020000) {
-		finishedHandler(MRAM_RES_INVALID_ADR,  adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_INVALID_ADR,  adr, 0, len);
 		return;
 	}
 
@@ -248,32 +248,32 @@ void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t l
 	return;
 }
 
-void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedHandler)(mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
+void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedHandler)(uint8_t chipIdx,mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
     mram_chip_t *mramPtr = 0;
     if (chipIdx < MRAM_CHIP_CNT) {
         mramPtr =  &MramChipStates[chipIdx];
     } else {
-        finishedHandler(MRAM_RES_INVALID_CHIPIDX, adr, 0, len);
+        finishedHandler(chipIdx, MRAM_RES_INVALID_CHIPIDX, adr, 0, len);
         return;
     }
 
     if (mramPtr->status != MRAM_STAT_IDLE) {
-		finishedHandler(MRAM_RES_BUSY, adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_BUSY, adr, 0, len);
 		return;
 	}
 
 	if (data == NULL) {
-		finishedHandler(MRAM_RES_DATA_PTR_INVALID, adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_DATA_PTR_INVALID, adr, 0, len);
 		return;
 	}
 
 	if (len > MRAM_MAX_READ_SIZE) {
-		finishedHandler(MRAM_RES_RX_LEN_OVERFLOW, adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_RX_LEN_OVERFLOW, adr, 0, len);
 		return;
 	}
 
 	if (adr + len >  0x020000) {
-		finishedHandler(MRAM_RES_INVALID_ADR,  adr, 0, len);
+		finishedHandler(chipIdx, MRAM_RES_INVALID_ADR,  adr, 0, len);
 		return;
 	}
 
