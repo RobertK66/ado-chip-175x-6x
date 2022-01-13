@@ -8,7 +8,7 @@
 #ifndef TESTS_TEST_SYSTEMCONFIGS_H_
 #define TESTS_TEST_SYSTEMCONFIGS_H_
 
-#include <Chip.h>
+#include <chip.h>
 #include <ado_test.h>
 
 // Test Functions prototypes

@@ -8,7 +8,7 @@
 #ifndef MOD_ADO_EVENTLOGGER_H_
 #define MOD_ADO_EVENTLOGGER_H_
 
-//#include <Chip.h>
+//#include <chip.h>
 //
 //#include <ado_time.h>
 //#include <stdarg.h>
