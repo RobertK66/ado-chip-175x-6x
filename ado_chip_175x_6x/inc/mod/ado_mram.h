@@ -2,6 +2,7 @@
  * mram.h
  *
  *  Created on: 27.12.2019
+ *
  */
 
 #ifndef MOD_ADO_MRAM_H_
