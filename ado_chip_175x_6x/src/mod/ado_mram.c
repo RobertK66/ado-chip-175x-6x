@@ -200,9 +200,20 @@ void MramMain() {
     }   // END FOR all chips.
 }
 
+mram_res_t MramIsChipItialized(uint8_t chipIdx) {
+	mram_chip_t *mramPtr = 0;
+	if (chipIdx < MRAM_CHIP_CNT) {
+		mramPtr =  &MramChipStates[chipIdx];
+	} else {
+		return MRAM_RES_INVALID_CHIPIDX;
+	}
+	if (mramPtr->status == MRAM_STAT_IDLE) {
+	  return MRAM_RES_SUCCESS;
+	}
+	  return MRAM_RES_NOTINITIALIZED;
+}
 
-
-void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(uint8_t chipIdx,mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
+void MramReadAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t len, void (*finishedHandler)(uint8_t chipIdx,mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
     mram_chip_t *mramPtr = 0;
     if (chipIdx < MRAM_CHIP_CNT) {
         mramPtr =  &MramChipStates[chipIdx];
@@ -248,7 +259,7 @@ void ReadMramAsync(uint8_t chipIdx, uint32_t adr,  uint8_t *rx_data,  uint32_t l
 	return;
 }
 
-void WriteMramAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedHandler)(uint8_t chipIdx,mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
+void MramWriteAsync(uint8_t chipIdx, uint32_t adr, uint8_t *data, uint32_t len,  void (*finishedHandler)(uint8_t chipIdx,mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len)) {
     mram_chip_t *mramPtr = 0;
     if (chipIdx < MRAM_CHIP_CNT) {
         mramPtr =  &MramChipStates[chipIdx];
