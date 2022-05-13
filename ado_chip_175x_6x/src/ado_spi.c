@@ -16,7 +16,7 @@
 //#define ADO_SSP_DUMP_RX(device) { uint32_t temp; (void)temp; while ((device->SR & SSP_STAT_RNE) != 0) { temp = device->DR; } }
 //#define ADO_SSP_DUMP_RX(device) { while ((device->SR & SSP_STAT_RNE) != 0) { rxDummy = device->DR; } }
 
-#define ADO_SPI_DUMP_RX() { while ((LPC_SPI->SR & SPI_SR_SPIF) != 0) { rxDummy = LPC_SPI->DR; } }
+#define ADO_SPI_DUMP_RX() { while ((LPC_SPI->SR & SPI_SR_SPIF) != 0) { rxDummy1 = LPC_SPI->DR; } }
 
 #define ADO_INCREMENT_SPIJOBNR(anyUint) { anyUint++; if (anyUint == ADO_SPI_MAXJOBS) {anyUint = 0; } }
 
@@ -74,7 +74,7 @@ typedef struct ado_spijobs_s
 
 // local/module variables
 ado_spijobs_t 	ado_spijobs;		// One structure holding the job queue
-uint8_t 		rxDummy;            // used as 'empty'/null destination
+uint8_t 		rxDummy1;            // used as 'empty'/null destination
 //uint8_t 		txDummy = 0xFF;     //
 
 // Prototypes
@@ -133,7 +133,7 @@ void SPI_IRQHandler(void)
     }
 
     // read rx frame
-    uint8_t *rxPtr = &rxDummy;
+    uint8_t *rxPtr = &rxDummy1;
     if (ado_spijobs.frames_processsed >= job->txSize) {
         rxPtr = &job->rxData[ado_spijobs.frames_processsed - job->txSize];
     }

@@ -22,6 +22,11 @@ typedef enum ado_sspid_e
 	ADO_SSP0 = 0, ADO_SSP1 = 1
 } ado_sspid_t;
 
+typedef enum ado_sbus_id_e
+{
+	ADO_SBUS_SSP0 = 0, ADO_SBUS_SSP1 = 1, ADO_SBUS_SPI = 99
+} ado_sbus_id_t;
+
 typedef enum ado_sspstatus_e
 {
 	SSP_JOB_STATE_NEW = 0, ADO_SSP_JOBDONE, SSP_JOB_STATE_ERROR, SSP_JOB_BUFFER_OVERFLOW

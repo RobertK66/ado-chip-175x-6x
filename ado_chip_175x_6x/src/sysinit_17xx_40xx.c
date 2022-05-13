@@ -98,8 +98,8 @@ void Chip_SetupXtalClocking(void)
 
 	/* FCCO = ((15+1) * 2 * 12MHz) / (0+1) = 384MHz */
 	/* FCCO = ((119+1) * 2 * 12MHz) / (5+1) = 480MHz */
-	Chip_Clock_SetupPLL(SYSCTL_MAIN_PLL, 119, 5);
-	//Chip_Clock_SetupPLL(SYSCTL_MAIN_PLL, 15, 0);
+	//Chip_Clock_SetupPLL(SYSCTL_MAIN_PLL, 119, 5);
+	Chip_Clock_SetupPLL(SYSCTL_MAIN_PLL, 15, 0);
 
 	Chip_Clock_EnablePLL(SYSCTL_MAIN_PLL, SYSCTL_PLL_ENABLE);
 

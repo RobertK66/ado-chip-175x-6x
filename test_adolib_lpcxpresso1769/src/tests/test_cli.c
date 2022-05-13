@@ -6,7 +6,7 @@
  */
 #include <stdio.h>
 
-#include <Chip.h>
+#include <chip.h>
 
 
 #include "test_cli.h"

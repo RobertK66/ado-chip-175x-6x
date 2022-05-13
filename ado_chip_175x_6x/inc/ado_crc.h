@@ -43,4 +43,10 @@ uint16_t CRC16_0x1021(const uint8_t* data_p, uint16_t length, uint16_t start);
 // width=16 poly=0x1021 init=0x0000 refin=false refout=false xorout=0xffff check=0xce3c residue=0x1d0f name="CRC-16/GSM"
 #define CRC16_GSM(ptr, len)			(0xFFFF ^ CRC16_0x1021(ptr,len,0x0000))
 
+// non optimized (i,j loop) crc8 for polynom: x8+x5+x4+1 / refin=false refout=false
+uint8_t CRC8_0x31(const uint8_t* data_p, uint16_t length, uint8_t start);
+
+// CRC8 polinom x8+x5+x4+1 / Start 0xff
+#define CRC8(ptr, len) CRC8_0x31(ptr, len, 0xFF);
+
 #endif /* ADO_CRC_H_ */

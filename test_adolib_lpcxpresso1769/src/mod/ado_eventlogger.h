@@ -8,7 +8,7 @@
 #ifndef MOD_ADO_EVENTLOGGER_H_
 #define MOD_ADO_EVENTLOGGER_H_
 
-//#include <Chip.h>
+//#include <chip.h>
 //
 //#include <ado_time.h>
 //#include <stdarg.h>
@@ -68,14 +68,6 @@
 //void LogMain(void);
 //
 //void LogEvent(ado_event_t *event);
-//
-//
-//void InitializeAndLogEvent(ado_event_t *event, ...);
-//
-//// Convenient Makro to be used to log custom events with arbitrary init params.
-//#define DefinedLogEvent(type, init, ...) { type event; \
-//    event.baseEvent.initializer = init; \
-//    InitializeAndLogEvent((ado_event_t *)&event, __VA_ARGS__); }
 
 
 

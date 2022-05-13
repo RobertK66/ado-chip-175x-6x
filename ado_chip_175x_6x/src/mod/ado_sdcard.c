@@ -90,7 +90,7 @@ typedef struct ado_sdcars_s {
     ado_sdc_status_t nextStatus;            // used by callback to switch state if SPI command finished its sending.
     bool             sdcCmdPending;         //
     uint16_t         sdcWaitLoops;          //
-    void             (*csHandler)(bool select);
+    const PINMUX_GRP_T2* csPin;			    //void             (*csHandler)(bool select);
     void             (*blockFinishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len);
 } ado_sdcard_t;
 
@@ -114,6 +114,8 @@ typedef struct {
 
 
 // prototypes
+void *SdcInit(ado_sbus_id_t sspId, const PINMUX_GRP_T2* csPin);
+void *SdcInitSPI(const PINMUX_GRP_T2* csPin);
 void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize);
 void SdcSendCommand(ado_sdcard_t *sdCard, ado_sdc_cmd_t cmd, uint32_t nextState, uint32_t arg);
 //void SdcReadBlock(ado_sspid_t bus, uint32_t blockNr);
@@ -127,9 +129,11 @@ static ado_sdcard_t *sdCards[ADO_SDC_MAX_CARDS];
 
 void ActivateCS(uint32_t context) {
     ado_sdcard_t *sdCard = (ado_sdcard_t *)context;
-    if (sdCard->csHandler != 0) {       // If no CS handler is provided we rely on 'native SSL' to be configured. Then the HW takes care of CS activation o nits own.
-        sdCard->csHandler(true);
-    }
+    Chip_GPIO_SetPinState(LPC_GPIO, sdCard->csPin->pingrp, sdCard->csPin->pinnum, !sdCard->csPin->initval);
+
+//    if (sdCard->csHandler != 0) {       // If no CS handler is provided we rely on 'native SSL' to be configured. Then the HW takes care of CS activation o nits own.
+//        sdCard->csHandler(true);
+//    }
 }
 
 inline void SdcInitAll(void* cards) { _SdcInitAll((sdcard_init_array_t*)cards); }
@@ -141,20 +145,20 @@ void _SdcInitAll(sdcard_init_array_t* cards) {
 	}
 	for (int i = 0; i < cards->entryCount; i++ ){
 		if (cards->chipinits[i].busnr == ADO_SBUS_SPI) {
-			SdcInitSPI(cards->chipinits[i].csHandler);
+			SdcInitSPI(cards->chipinits[i].csPin);
 		} else {
-			SdcInit(cards->chipinits[i].busnr, cards->chipinits[i].csHandler);
+			SdcInit(cards->chipinits[i].busnr, cards->chipinits[i].csPin);
 		}
 	}
 }
 
-void *SdcInit(ado_sbus_id_t bus,  void(*csHandler)(bool select)) {
+void *SdcInit(ado_sbus_id_t bus, const PINMUX_GRP_T2* csPin) {
 	ado_sdcard_t *newCard = 0;
 	newCard = malloc(sizeof(ado_sdcard_t));
 	if (newCard != 0) {
 		sdCards[cardCnt] = newCard;
 		sdCards[cardCnt]->sdcBusNr = bus;
-		sdCards[cardCnt]->csHandler = csHandler;
+		sdCards[cardCnt]->csPin = csPin;
 		sdCards[cardCnt]->sdcType = ADO_SDC_CARD_UNKNOWN;
 		sdCards[cardCnt]->sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
 		sdCards[cardCnt]->sdcCmdPending = false;
@@ -164,13 +168,13 @@ void *SdcInit(ado_sbus_id_t bus,  void(*csHandler)(bool select)) {
     return (void *)newCard;
 }
 
-void *SdcInitSPI(void(*csHandler)(bool select)) {
+void *SdcInitSPI(const PINMUX_GRP_T2* csPin){ //void(*csHandler)(bool select)) {
 	ado_sdcard_t *newCard = 0;
 	newCard = malloc(sizeof(ado_sdcard_t));
 	if (newCard != 0) {
 		sdCards[cardCnt] = newCard;
 		sdCards[cardCnt]->sdcBusNr = 99;
-		sdCards[cardCnt]->csHandler = csHandler;
+		sdCards[cardCnt]->csPin = csPin;
 		sdCards[cardCnt]->sdcType = ADO_SDC_CARD_UNKNOWN;
 		sdCards[cardCnt]->sdcStatus = ADO_SDC_CARDSTATUS_UNDEFINED;
 		sdCards[cardCnt]->sdcCmdPending = false;
@@ -445,9 +449,12 @@ void SdcMain(void) {
 void DMAFinishedIRQ(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) {
     ado_sdcard_t *sdCard = (ado_sdcard_t *)context;
 
-     if (sdCard->csHandler != 0) {
-        sdCard->csHandler(false);                       // Deselect the cards CS line
-    }
+    // Deselect the cards CS line (by restoring it to initval)
+    Chip_GPIO_SetPinState(LPC_GPIO, sdCard->csPin->pingrp, sdCard->csPin->pinnum, sdCard->csPin->initval);
+
+//     if (sdCard->csHandler != 0) {
+//        sdCard->csHandler(false);                       // Deselect the cards CS line
+//    }
 	if (jobStatus == ADO_SSP_JOBDONE) {
 		sdCard->sdcStatus = sdCard->nextStatus;         // Signal Status switch to mainloop.
 	} else {
@@ -545,7 +552,8 @@ void SdcReadBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data,  void (
 	}
 }
 
-void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
+//void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
+void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, sdcard_block512 *data, void (*finishedHandler)(sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len)) {
 	if (cardIdx <= cardCnt) {
 		ado_sdcard_t *sdCard = sdCards[cardIdx];
 
@@ -560,7 +568,11 @@ void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (
 		}
 
 		sdCard->blockFinishedHandler = finishedHandler;
-		sdCard->dataBuffer = data;          // TODO: at this moment we expect this to hold the start token on [0] and 2 Checksum bytes on position 513, 514 -> refactor to keep this away from Client....
+		data->token = 0xFE;             // Data Block Start token.
+		uint16_t crc = CRC16_XMODEM((uint8_t*)data, 512);
+		data->crc[0] = (uint8_t)(crc >> 8);
+		data->crc[1] = (uint8_t) crc;
+		sdCard->dataBuffer = (uint8_t*)data;
 
 		if (sdCard->sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED) {
 			SdcSendCommand(sdCard, ADO_SDC_CMD24_WRITE_SINGLE_BLOCK, ADO_SDC_CARDSTATUS_WRITE_SBCMD, arg);
@@ -568,4 +580,12 @@ void SdcWriteBlockAsync(uint8_t cardIdx, uint32_t blockNr, uint8_t *data, void (
 			finishedHandler(SDC_RES_ERROR, blockNr, 0, 0);
 		}
 	}
+}
+
+bool SdcIsCardinitialized(uint8_t cardIdx) {
+	bool retVal = false;
+	if (cardIdx <= cardCnt) {
+		retVal = (sdCards[cardIdx]->sdcStatus == ADO_SDC_CARDSTATUS_INITIALIZED);
+	}
+	return retVal;
 }
