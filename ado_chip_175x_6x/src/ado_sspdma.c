@@ -205,28 +205,51 @@ void ADO_SSP_AddJob(uint32_t context, ado_sspid_t sspId,
 void DMA_IRQHandler(void) {
 	// Chip_GPIO_SetPinOutLow(LPC_GPIO, 0, 4);      // Debug IO
 	uint32_t tcs = LPC_GPDMA->INTTCSTAT;
+
+//	void(*callback0)(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) = 0;
+//	uint32_t 		cb0Context;
+//	uint8_t *		cb0Data;
+//	uint16_t		cb0Size;
+//
+//	void(*callback1)(uint32_t context, ado_sspstatus_t jobStatus, uint8_t *rxData, uint16_t rxSize) = 0;
+//	uint32_t 		cb1Context;
+//	uint8_t *		cb1Data;
+//	uint16_t		cb1Size;
+
 	if ( tcs & (1UL<<ADO_SSP0_RXDMACHANNEL) ) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP0_RXDMACHANNEL);
 		// This was SSP0 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[0].job[ado_sspjobs[0].current_job];
 		//if (job->ADO_SSP_JobFinished_IRQCallback != 0) {      // safety or performance? which to choose here?
-		    job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
-		//}
 
 		ado_sspjobs[0].jobs_pending--;
+		job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
+//		callback0 = job->ADO_SSP_JobFinished_IRQCallback;
+//		cb0Context = job->context;
+//		cb0Data = job->rxData;
+//		cb0Size = job->rxSize;
+
+		//}
+
+
 		if (ado_sspjobs[0].jobs_pending > 0) {
 			// Continue with nextJob
 		    ADO_INCREMENT_SSPJOBNR(ado_sspjobs[0].current_job);
 			ADO_SSP_InitiateDMA(ADO_SSP0,&ado_sspjobs[0].job[ado_sspjobs[0].current_job]);
 		}
 	}
-
 	if ( tcs & (1<<ADO_SSP1_RXDMACHANNEL) ) {
 		LPC_GPDMA->INTTCCLEAR = (1UL << ADO_SSP1_RXDMACHANNEL);
 		// This was SSP1 finishing its RX Channel.
 		ado_sspjob_t *job = &ado_sspjobs[1].job[ado_sspjobs[1].current_job];
 		//if (job->ADO_SSP_JobFinished_IRQCallback != 0) {      // safety or performance? which to choose here?
-		    job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
+
+		job->ADO_SSP_JobFinished_IRQCallback(job->context, ADO_SSP_JOBDONE, job->rxData, job->rxSize);
+//		callback1 = job->ADO_SSP_JobFinished_IRQCallback;
+//		cb1Context = job->context;
+//		cb1Data = job->rxData;
+//		cb1Size = job->rxSize;
+
 		//}
 		ado_sspjobs[1].jobs_pending--;
 		if (ado_sspjobs[1].jobs_pending > 0) {
@@ -235,6 +258,15 @@ void DMA_IRQHandler(void) {
 			ADO_SSP_InitiateDMA(ADO_SSP1,&ado_sspjobs[1].job[ado_sspjobs[1].current_job]);
 		}
 	}
+
+//	if (callback0 != 0) {
+//		callback0(cb0Context, ADO_SSP_JOBDONE, cb0Data, cb0Size);
+//	}
+//	if (callback1 != 0) {
+//		callback1(cb1Context, ADO_SSP_JOBDONE, cb1Data, cb1Size);
+//	}
+
+
 	// Chip_GPIO_SetPinOutHigh(LPC_GPIO, 0, 4);     // Debug IO
 }
 

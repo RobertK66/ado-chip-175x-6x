@@ -237,10 +237,10 @@ static sdcard_init_array_t Cards = {
 int main(void) {
     // Start the systemTime running on RIT IRQ. The offset to start from is dependent on code runtime from reset up to here.
     uint32_t resetCount = GetResetCntFromRTC();
-    uint32_t startOffsetMs = 10;
+    //uint32_t startOffsetMs = 10;
     if (resetCount == 0) {
         resetCount = GetResetCountFromPersistence();
-        startOffsetMs = 100;     //?? TODO: Measure this value....
+        //startOffsetMs = 100;     //?? TODO: Measure this value....
     }
     //TimeInit(startOffsetMs, resetCount);
     IncrementResetCount();
@@ -336,11 +336,11 @@ int main(void) {
 
 
 
-	uint32_t fault = Chip_GPIO_GetPinState(LPC_GPIO, 2, 4);   /* SP-VCC-FAULT (Input)  */
-	uint32_t rail = Chip_GPIO_GetPinState(LPC_GPIO, 3, 25);  /* Supply Rail Indicator (Input)  */
-	uint32_t boot = Chip_GPIO_GetPinState(LPC_GPIO, 3, 26);   /* Boot-loader selection (Input)  */
-	uint32_t rbf = Chip_GPIO_GetPinState(LPC_GPIO, 0, 21);   /* Remove before flight (Input)  */
-	uint32_t wdt_trig = Chip_GPIO_GetPinState(LPC_GPIO, 4, 29);   /* Ext. WDT triggered latch (Input)  */
+//	uint32_t fault = Chip_GPIO_GetPinState(LPC_GPIO, 2, 4);   /* SP-VCC-FAULT (Input)  */
+//	uint32_t rail = Chip_GPIO_GetPinState(LPC_GPIO, 3, 25);  /* Supply Rail Indicator (Input)  */
+//	uint32_t boot = Chip_GPIO_GetPinState(LPC_GPIO, 3, 26);   /* Boot-loader selection (Input)  */
+//	uint32_t rbf = Chip_GPIO_GetPinState(LPC_GPIO, 0, 21);   /* Remove before flight (Input)  */
+//	uint32_t wdt_trig = Chip_GPIO_GetPinState(LPC_GPIO, 4, 29);   /* Ext. WDT triggered latch (Input)  */
 
 	Chip_GPIO_SetPinOutLow(LPC_GPIO, 1, 9);   		/* Reset WDT latch   */
 	Chip_GPIO_SetPinOutHigh(LPC_GPIO, 1, 9);   		/* WDT latch reset set to high   */
@@ -615,24 +615,24 @@ void main_showSysTimeCmd(int argc, char *argv[]) {
 }
 
 void main_setUtcTimeCmd(int argc, char *argv[]) {
-    RTC_TIME_T t;
-    t.time[RTC_TIMETYPE_YEAR] = 2020;
-    t.time[RTC_TIMETYPE_MONTH] = 7;
-    t.time[RTC_TIMETYPE_DAYOFMONTH] = 26;
-    t.time[RTC_TIMETYPE_DAYOFYEAR] = 31 + 29 + 31 + 30 + 31 + 30 + 26;      // Needed??
-    t.time[RTC_TIMETYPE_DAYOFWEEK] = RTC_DAYOFWEEK_MAX;                     // Needed??
-    t.time[RTC_TIMETYPE_HOUR] = 12;
-    t.time[RTC_TIMETYPE_MINUTE] = 30;
-    t.time[RTC_TIMETYPE_SECOND] = 0;
-    if (argc > 0 ) { t.time[RTC_TIMETYPE_YEAR] = atoi(argv[0]); }
-    if (argc > 1 ) { t.time[RTC_TIMETYPE_MONTH] = atoi(argv[1]); }
-    if (argc > 2 ) { t.time[RTC_TIMETYPE_DAYOFMONTH] = atoi(argv[2]);
-                     t.time[RTC_TIMETYPE_DAYOFYEAR] = 0;    // TODO??
-                     t.time[RTC_TIMETYPE_DAYOFWEEK] = 0;    // TODO??
-                    }
-    if (argc > 3 ) { t.time[RTC_TIMETYPE_HOUR] = atoi(argv[3]); }
-    if (argc > 4 ) { t.time[RTC_TIMETYPE_MINUTE] = atoi(argv[4]); }
-    if (argc > 5 ) { t.time[RTC_TIMETYPE_SECOND] = atoi(argv[5]); }
+//    RTC_TIME_T t;
+//    t.time[RTC_TIMETYPE_YEAR] = 2020;
+//    t.time[RTC_TIMETYPE_MONTH] = 7;
+//    t.time[RTC_TIMETYPE_DAYOFMONTH] = 26;
+//    t.time[RTC_TIMETYPE_DAYOFYEAR] = 31 + 29 + 31 + 30 + 31 + 30 + 26;      // Needed??
+//    t.time[RTC_TIMETYPE_DAYOFWEEK] = RTC_DAYOFWEEK_MAX;                     // Needed??
+//    t.time[RTC_TIMETYPE_HOUR] = 12;
+//    t.time[RTC_TIMETYPE_MINUTE] = 30;
+//    t.time[RTC_TIMETYPE_SECOND] = 0;
+//    if (argc > 0 ) { t.time[RTC_TIMETYPE_YEAR] = atoi(argv[0]); }
+//    if (argc > 1 ) { t.time[RTC_TIMETYPE_MONTH] = atoi(argv[1]); }
+//    if (argc > 2 ) { t.time[RTC_TIMETYPE_DAYOFMONTH] = atoi(argv[2]);
+//                     t.time[RTC_TIMETYPE_DAYOFYEAR] = 0;    // TODO??
+//                     t.time[RTC_TIMETYPE_DAYOFWEEK] = 0;    // TODO??
+//                    }
+//    if (argc > 3 ) { t.time[RTC_TIMETYPE_HOUR] = atoi(argv[3]); }
+//    if (argc > 4 ) { t.time[RTC_TIMETYPE_MINUTE] = atoi(argv[4]); }
+//    if (argc > 5 ) { t.time[RTC_TIMETYPE_SECOND] = atoi(argv[5]); }
 
     //TimeSetUtc2(&t);
 }

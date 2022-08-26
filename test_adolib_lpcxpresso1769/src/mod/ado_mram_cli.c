@@ -15,8 +15,8 @@
 // prototypes
 void ReadMramCmd(int argc, char *argv[]);
 void WriteMramCmd(int argc, char *argv[]);
-void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
-void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+void ReadMramFinished (uint8_t chipIdx, mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
+void WriteMramFinished (uint8_t chipIdx, mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len);
 
 
 uint8_t  cliData[MRAM_MAX_WRITE_SIZE];
@@ -45,10 +45,11 @@ void ReadMramCmd(int argc, char *argv[]) {
     //mram_chip_t *mramPtr =  &MramChipStates[idx];
 
     // Binary Command
-    ReadMramAsync(idx, adr, cliData, len, ReadMramFinished);
+    MramReadAsync(idx, adr, cliData, len, ReadMramFinished);
 }
 
-void ReadMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
+
+void ReadMramFinished (uint8_t chipIdx, mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
     if (result == MRAM_RES_SUCCESS) {
         printf("MRAM read at %04X:\n", adr);
         for (int i=0; i<len; i++ ) {
@@ -88,10 +89,10 @@ void WriteMramCmd(int argc, char *argv[]) {
     }
 
     // Binary Command
-    WriteMramAsync(idx, adr, cliData, len,  WriteMramFinished);
+    MramWriteAsync(idx, adr, cliData, len,  WriteMramFinished);
 }
 
-void WriteMramFinished (mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
+void WriteMramFinished (uint8_t chipIdx, mram_res_t result, uint32_t adr, uint8_t *data, uint32_t len) {
     if (result == MRAM_RES_SUCCESS) {
         printf("%d bytes written to mram at %04X \n", len, adr);
     } else {
