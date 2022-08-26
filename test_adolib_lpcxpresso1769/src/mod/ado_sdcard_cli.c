@@ -172,7 +172,7 @@ void SdcWriteCmd(int argc, char *argv[]) {
     if (argc > 0) {
         sdcCurRwBlockNr = strtol(argv[0], NULL, 0);        //This allows '0x....' hex entry!
     }
-    SdcWriteBlockAsync(selectedCard, sdcCurRwBlockNr, sdcRwData, SdcWriteBlockFinished);
+    SdcWriteBlockAsync(selectedCard, sdcCurRwBlockNr, (sdcard_block512*)sdcRwData, SdcWriteBlockFinished);
 }
 
 void SdcWriteBlockFinished (sdc_res_t result, uint32_t blockNr, uint8_t *data, uint32_t len) {
